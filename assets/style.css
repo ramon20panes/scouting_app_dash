@@ -1,0 +1,39 @@
+/* Estilos globales */
+body {
+    background-color: #E6E6E6;
+    color: #001F3F;
+    font-family: sans-serif;
+}
+
+/* Tarjeta de login */
+.card {
+    background-color: #FFFFFF;
+    border: none;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Botón principal */
+.btn-primary {
+    background-color: #001F3F !important; /* Azul oscuro Atleti */
+    border-color: #001F3F !important;
+}
+
+.btn-primary:hover {
+    background-color: #00346B !important; /* Un poco más claro al pasar el mouse */
+    border-color: #00346B !important;
+}
+
+/* Encabezados */
+h1, h2, h3, h4, h5, h6 {
+    color: #00346B !important /* Azul Atleti para títulos */ /* #D81E05 rojo atleti */
+}
+
+/* Contenedores */
+.container {
+    background-color: transparent;
+}
+
+/* Tarjetas secundarias */
+.card-secondary {
+    background-color: #D3D3D3;
+}
