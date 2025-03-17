@@ -62,7 +62,6 @@ db.sqlite3
 db.sqlite3-journal
 
 db.py
-*.db
 data/atm_login.db
 
 # Flask stuff:
