@@ -1,4 +1,4 @@
-# Aplic_atm.py (modificación para incluir navegación y nuevas páginas)
+# Importación de bibliotecas
 import dash
 from dash import html, dcc
 import dash_bootstrap_components as dbc
@@ -6,12 +6,13 @@ from flask_login import LoginManager, current_user
 import flask
 
 from layouts.login import create_login_layout
-from layouts.player_stats_layout import player_stats_layout  # Importar la nueva página
+from layouts.player_stats_layout import player_stats_layout
+from utils.data_viz import load_team_data, create_player_callbacks
 from utils.auth import User, load_user
 from utils.db import init_db
 from callbacks import register_callbacks
 from config import CONFIG
-from components.navbar import create_navbar  # Asegúrate de crear este componente
+from components.navbar import create_navbar  
 
 # Inicializar la base de datos
 init_db()
@@ -82,25 +83,39 @@ def display_page(pathname):
             html.Div([
                 html.H1(f"Bienvenido, {current_user.name}", className="text-center mb-4"),
                 html.P("Selecciona una opción del menú para comenzar.", className="text-center mb-4"),
-                
+            
                 # Tarjetas para navegar a las diferentes secciones
                 dbc.Row([
                     dbc.Col([
                         dbc.Card([
+                            # Añadir imagen
+                            html.Img(
+                                src="/assets/imagenes/partido.jpg",  # Ruta a la imagen
+                                className="card-img-top",
+                                style={"height": "200px", "objectFit": "cover"}
+                            ),
                             dbc.CardBody([
                                 html.H4("Dashboard de Rendimiento", className="card-title"),
-                                html.P("Estadísticas por jugador", className="card-text"),
-                                dbc.Button("Ver estadísticas", href="/player-stats", color="primary")
+                                html.P("Comparativa", className="card-text"),
+                                dbc.Button("Ver estadísticas", href="/player-stats", color="primary",
+                                           style={"backgroundColor": CONFIG["team_colors"]["primary"]})
                             ])
                         ])
                     ], width=12, md=6, className="mb-4"),
-                    
+                
                     dbc.Col([
                         dbc.Card([
+                            # Añadir imagen
+                            html.Img(
+                                src="/assets/imagenes/entrenamiento.jpg",  # Ruta a la imagen
+                                className="card-img-top",
+                                style={"height": "200px", "objectFit": "cover"}
+                            ),
                             dbc.CardBody([
-                                html.H4("Datos Físicos", className="card-title"),
-                                html.P("Datos condicionales por jugador", className="card-text"),
-                                dbc.Button("Ver datos condicionales", href="/physical-data", color="primary")
+                                html.H4("Datos Condicionales", className="card-title"),
+                                html.P("Por jugador", className="card-text"),
+                                dbc.Button("Ver parámetros", href="/physical-data", color="primary",
+                                        style={"backgroundColor": CONFIG["team_colors"]["primary"]})
                             ])
                         ])
                     ], width=12, md=6, className="mb-4")
