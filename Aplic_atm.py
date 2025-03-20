@@ -8,11 +8,13 @@ import flask
 from layouts.login import create_login_layout
 from layouts.player_stats_layout import player_stats_layout
 from layouts.physical_data_layout import physical_data_layout
-from utils.data_viz import load_team_data, create_player_callbacks
+from layouts.player_stats_layout import load_team_data
+from callbacks.player_stats_callbacks import register_player_stats_callbacks
 from utils.auth import User, load_user
 from utils.db import init_db
 from callbacks import register_callbacks
 from callbacks.physical_data_callbacks import register_physical_data_callbacks
+from callbacks.player_stats_callbacks import register_player_stats_callbacks
 from utils.heatmap_generator import generar_heatmap
 from config import CONFIG
 from components.navbar import create_navbar  
@@ -66,13 +68,11 @@ def serve_heatmap(id_sofascore):
         heatmap_base64 = generar_heatmap(id_sofascore)
         # Devolver la imagen
         return flask.Response(
-            flask.render_template_string(
-                '<img src="data:image/png;base64,{{ image }}" alt="Heatmap">',
-                image=heatmap_base64
-            ),
+            f'<img src="data:image/png;base64,{heatmap_base64}" alt="Heatmap">',
             mimetype='text/html'
         )
     except Exception as e:
+        print(f"Error al generar heatmap: {str(e)}")
         return f"Error al generar heatmap: {str(e)}", 500
 
 # Layout base de la aplicación
@@ -84,7 +84,6 @@ app.layout = html.Div([
 
 # Registro de callbacks
 register_callbacks(app)
-register_physical_data_callbacks(app)
 
 # Callback para manejar la navegación
 @app.callback(
@@ -145,7 +144,16 @@ def display_page(pathname):
                             ])
                         ])
                     ], width=12, md=6, className="mb-4")
-                ], className="mt-4")
+                ], className="mt-4"),
+
+                # Añadir firma al final
+                dbc.Row([
+                    dbc.Col([
+                        html.P("Ramón González MPAD", 
+                               className="text-end fw-bold fs-5 mt-4 me-3", 
+                               style={"color": CONFIG["team_colors"]["primary"]})
+                    ], width=12)
+                ])
             ], className="container")
         ])
     elif pathname == '/player-stats':
@@ -156,11 +164,19 @@ def display_page(pathname):
             ], className="container-fluid py-3")
         ])
     elif pathname == '/physical-data':
-        # Implementación de la página de datos físicos
         return html.Div([
             create_navbar(),
             html.Div([
-                physical_data_layout()
+                physical_data_layout(),
+                
+                # Añadir firma al final
+                dbc.Row([
+                    dbc.Col([
+                        html.P("Ramón González MPAD", 
+                               className="text-end fw-bold fs-5 mt-4 me-3", 
+                               style={"color": CONFIG["team_colors"]["primary"]})
+                    ], width=12)
+                ])
             ], className="container-fluid py-3")
         ])
         

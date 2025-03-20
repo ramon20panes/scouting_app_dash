@@ -3,8 +3,9 @@ import numpy as np
 import sqlite3
 import plotly.graph_objects as go
 import plotly.express as px
+import dash
 from dash.dependencies import Input, Output, State
-from dash import html, dcc
+from dash import html, dcc, dash_table
 import dash_bootstrap_components as dbc
 import requests
 import io
@@ -16,11 +17,232 @@ import base64
 import json
 import os
 from flask_login import current_user
+import unicodedata
+from utils.pdf_export import exportar_pdf
+
 
 def register_physical_data_callbacks(app):
     """
     Registra los callbacks para la página de datos físicos/condicionales
     """
+    
+    # Función para normalizar nombres (quitar acentos, minúsculas)
+    def normalize_name(name):
+        # Normalizar, convertir a minúsculas y quitar espacios extras
+        if not name:
+            return ""
+        return ' '.join(unicodedata.normalize('NFKD', str(name).lower())
+                        .encode('ASCII', 'ignore')
+                        .decode('ASCII')
+                        .split())
+    
+    def cargar_archivo_maestro():
+        """Carga el archivo maestro de jugadores"""
+        try:
+            if os.path.exists('data/jugadores_master.csv'):
+                # Intentar diferentes configuraciones de lectura
+                try:
+                    # Intentar leer con tab como separador
+                    maestro_df = pd.read_csv('data/jugadores_master.csv', sep='\t', encoding='utf-8')
+                    # Verificar si tiene una sola columna con múltiples separadores dentro
+                    if len(maestro_df.columns) == 1 and ';' in maestro_df.columns[0]:
+                        # Si es así, dividir la primera columna
+                        primera_col = maestro_df.columns[0]
+                        # Crear un nuevo DataFrame con las columnas divididas
+                        nuevas_cols = primera_col.split(';')
+                        # Dividir los valores
+                        valores_split = [row.split(';') for row in maestro_df[primera_col]]
+                        # Crear nuevo DataFrame
+                        maestro_df = pd.DataFrame(valores_split, columns=nuevas_cols)
+                        print("Archivo maestro procesado dividiendo la columna principal")
+                    else:
+                        print("Archivo maestro cargado con separador tab")
+                except Exception as e1:
+                    try:
+                        # Intentar con separador punto y coma
+                        maestro_df = pd.read_csv('data/jugadores_master.csv', sep=';', encoding='utf-8')
+                        print("Archivo maestro cargado con separador ;")
+                    except Exception as e2:
+                        try:
+                            # Intentar con separador coma
+                            maestro_df = pd.read_csv('data/jugadores_master.csv', encoding='utf-8')
+                            print("Archivo maestro cargado con separador ,")
+                        except Exception as e3:
+                            print(f"No se pudo cargar el archivo con ningún separador conocido: {e1}, {e2}, {e3}")
+                            # Crear un diccionario específico para jugadores clave
+                            jugadores_info = {
+                                'Julián Álvarez': {                            
+                                    'nombre_completo': 'Julián Álvarez',
+                                    'short_name': 'Julián',
+                                    'id_sofascore': 944656,
+                                    'ruta_foto': '/assets/players/19.png'
+                                },
+                                'Axel Witsel': {
+                                    'nombre_completo': 'Axel Witsel',
+                                    'short_name': 'Witsel',
+                                    'id_sofascore': 35612,
+                                    'ruta_foto': '/assets/players/20.png'
+                                },
+                                'Javi Galán': {
+                                    'nombre_completo': 'Javi Galán',
+                                    'short_name': 'Galán',
+                                    'id_sofascore': 825133,
+                                    'ruta_foto': '/assets/players/21.png'
+                                },
+                                'Giuliano Simeone': {
+                                    'nombre_completo': 'Giuliano Simeone',
+                                    'short_name': 'Giuliano',
+                                    'id_sofascore': 1099352,
+                                    'ruta_foto': '/assets/players/22.png'
+                                },
+                                'Reinildo Mandava': {
+                                    'nombre_completo': 'Reinildo Mandava',
+                                    'short_name': 'Reinildo',
+                                    'id_sofascore': 831424,
+                                    'ruta_foto': '/assets/players/23.png'
+                                },
+                                'Robin Le Normand': {
+                                    'nombre_completo': 'Robin Le Normand',
+                                    'short_name': 'Le Normand',
+                                    'id_sofascore': 787751,
+                                    'ruta_foto': '/assets/players/24.png'
+                                    },
+                                'Adrián Niño': {
+                                    'nombre_completo': 'Adrián Niño',
+                                    'short_name': 'Niño',
+                                    'id_sofascore': 1402927,
+                                    'ruta_foto': '/assets/players/24.png'
+                                }
+                            # Puedes añadir más jugadores según necesites
+                        }
+                        # Convertir a DataFrame
+                        return pd.DataFrame.from_dict(jugadores_info, orient='index').reset_index().rename(columns={'index': 'nombre'})
+
+                # Normalizar columnas cruciales
+                if 'nombre_completo' in maestro_df.columns:
+                    maestro_df['nombre'] = maestro_df['nombre_completo']  # Asegurar que existe columna 'nombre'
+            
+                if 'nombre_completo' in maestro_df.columns and 'nombre_completo_norm' not in maestro_df.columns:
+                    maestro_df['nombre_completo_norm'] = maestro_df['nombre_completo'].apply(normalize_name)
+            
+                if 'short_name' in maestro_df.columns and 'short_name_norm' not in maestro_df.columns:
+                    maestro_df['short_name_norm'] = maestro_df['short_name'].apply(normalize_name)
+            
+                # Asegurar que 'ruta_foto' comienza con '/'
+                if 'ruta_foto' in maestro_df.columns:
+                    maestro_df['ruta_foto'] = maestro_df['ruta_foto'].apply(
+                        lambda x: '/' + x.lstrip('/') if isinstance(x, str) else x
+                    )
+            
+                # Corregir rutas de fotos específicas (solo en memoria)
+                for idx, row in maestro_df.iterrows():
+                    if 'nombre_completo' in row and row['nombre_completo'] == 'Julián Álvarez' and 'ruta_foto' in maestro_df.columns:
+                        maestro_df.at[idx, 'ruta_foto'] = '/assets/players/19.png'
+                    if 'nombre_completo' in row and row['nombre_completo'] == 'Jan Oblak' and 'ruta_foto' in maestro_df.columns:
+                        maestro_df.at[idx, 'ruta_foto'] = '/assets/players/13.png'
+                    if 'nombre_completo' in row and row['nombre_completo'] == 'Reinildo Mandava' and 'ruta_foto' in maestro_df.columns:
+                        maestro_df.at[idx, 'ruta_foto'] = '/assets/players/23.png'
+                    
+                return maestro_df
+            else:
+                print("No se encontró el archivo maestro. Usando datos fijos para jugadores clave.")
+                # Crear un diccionario específico para jugadores clave
+                jugadores_info = {
+                    'Julián Álvarez': {                            
+                        'nombre_completo': 'Julián Álvarez',
+                        'short_name': 'Julián',
+                        'id_sofascore': 944656,
+                        'ruta_foto': '/assets/players/19.png'
+                    },
+                    'Axel Witsel': {
+                        'nombre_completo': 'Axel Witsel',
+                        'short_name': 'Witsel',
+                        'id_sofascore': 35612,
+                        'ruta_foto': '/assets/players/20.png'
+                    },
+                    'Javi Galán': {
+                        'nombre_completo': 'Javi Galán',
+                        'short_name': 'Galán',
+                        'id_sofascore': 825133,
+                        'ruta_foto': '/assets/players/21.png'
+                    },
+                    'Giuliano Simeone': {
+                        'nombre_completo': 'Giuliano Simeone',
+                        'short_name': 'Giuliano',
+                        'id_sofascore': 1099352,
+                        'ruta_foto': '/assets/players/22.png'
+                    },
+                    'Reinildo Mandava': {
+                        'nombre_completo': 'Reinildo Mandava',
+                        'short_name': 'Reinildo',
+                        'id_sofascore': 831424,
+                        'ruta_foto': '/assets/players/23.png'
+                    },
+                    'Robin Le Normand': {
+                        'nombre_completo': 'Robin Le Normand',
+                        'short_name': 'Le Normand',
+                        'id_sofascore': 787751,
+                        'ruta_foto': '/assets/players/24.png'
+                    },
+                    'Adrián Niño': {
+                        'nombre_completo': 'Adrián Niño',
+                        'short_name': 'Niño',
+                        'id_sofascore': 1402927,
+                        'ruta_foto': '/assets/players/24.png'
+                    }
+                }
+                # Convertir a DataFrame
+                return pd.DataFrame.from_dict(jugadores_info, orient='index').reset_index().rename(columns={'index': 'nombre'})
+        except Exception as e:
+            print(f"Error al cargar archivo maestro: {e}")
+            import traceback
+            traceback.print_exc()
+            # Fallback: retornar datos fijos para jugadores clave
+            jugadores_info = {
+                'Julián Álvarez': {                            
+                    'nombre_completo': 'Julián Álvarez',
+                    'short_name': 'Julián',
+                    'id_sofascore': 944656,
+                    'ruta_foto': '/assets/players/19.png'
+                },
+                'Axel Witsel': {
+                    'nombre_completo': 'Axel Witsel',
+                    'short_name': 'Witsel',
+                    'id_sofascore': 35612,
+                    'ruta_foto': '/assets/players/20.png'
+                },
+                'Javi Galán': {
+                    'nombre_completo': 'Javi Galán',
+                    'short_name': 'Galán',
+                    'id_sofascore': 825133,
+                    'ruta_foto': '/assets/players/21.png'
+                },
+                'Giuliano Simeone': {
+                    'nombre_completo': 'Giuliano Simeone',
+                    'short_name': 'Giuliano',
+                    'id_sofascore': 1099352,
+                    'ruta_foto': '/assets/players/22.png'
+                },
+                'Reinildo Mandava': {
+                    'nombre_completo': 'Reinildo Mandava',
+                    'short_name': 'Reinildo',
+                    'id_sofascore': 831424,
+                    'ruta_foto': '/assets/players/23.png'
+                },
+                'Robin Le Normand': {
+                    'nombre_completo': 'Robin Le Normand',
+                    'short_name': 'Le Normand',
+                    'id_sofascore': 787751,
+                    'ruta_foto': '/assets/players/24.png'
+                },
+                'Adrián Niño': {
+                    'nombre_completo': 'Adrián Niño',
+                    'short_name': 'Niño',
+                    'id_sofascore': 1402927,
+                    'ruta_foto': '/assets/players/24.png'
+                }
+            }
+            return pd.DataFrame.from_dict(jugadores_info, orient='index').reset_index().rename(columns={'index': 'nombre'})
     
     # Función auxiliar para cargar datos condicionales
     def cargar_datos_fisicos(nombre_jugador):
@@ -40,6 +262,12 @@ def register_physical_data_callbacks(app):
         """Carga los datos maestros de un jugador"""
         try:
             print(f"Buscando datos para jugador: {nombre_jugador}")
+        
+            # Verificar si hay caracteres mal codificados en el nombre
+            try:
+                nombre_jugador_corregido = nombre_jugador.encode('latin1').decode('utf-8')
+            except:
+                nombre_jugador_corregido = nombre_jugador
         
             # Obtener estadísticas adicionales de los datos físicos
             conn = sqlite3.connect('data/ATM_condic_24_25.db')
@@ -70,7 +298,11 @@ def register_physical_data_callbacks(app):
             conn.close()
         
             if not jugador_df.empty:
+                # Datos básicos del jugador
                 jugador = jugador_df.iloc[0].to_dict()
+            
+                # Mostrar nombre corregido si tiene caracteres especiales
+                jugador['nombre_display'] = nombre_jugador_corregido
             
                 # Agregar estadísticas clave
                 if not stats_df.empty:
@@ -78,115 +310,118 @@ def register_physical_data_callbacks(app):
                         if not pd.isna(stats_df[col].iloc[0]):
                             jugador[col] = round(stats_df[col].iloc[0], 1)
             
-                # Agregar campos adicionales
+                # Valores por defecto
                 jugador['id_sofascore'] = None
                 jugador['foto_url'] = '/assets/imagenes/player_placeholder.png'
-                jugador['nacionalidad'] = 'No disponible'
-                jugador['pais'] = 'No disponible'
-                jugador['altura'] = 'No disponible'
-                jugador['peso'] = 'No disponible'
+                jugador['nacionalidad'] = 'ESP'
             
-                # Intentar buscar información adicional en el archivo maestro
-                if os.path.exists('data/jugadores_master.csv'):
+                # Cargar archivo maestro para datos adicionales
+                maestro_df = cargar_archivo_maestro()
+            
+                if not maestro_df.empty:
                     try:
-                        print("Archivo maestro encontrado, buscando coincidencias...")
-                        jugadores_master = pd.read_csv('data/jugadores_master.csv')
-                    
-                        # Imprimir columnas disponibles
-                        print(f"Columnas en archivo maestro: {jugadores_master.columns.tolist()}")
-                    
-                        # Normalizar nombre para búsqueda (quitar acentos, minúsculas)
-                        import unicodedata
-                        def normalize_name(name):
-                            # Normalizar, convertir a minúsculas y quitar espacios extras
-                            return ' '.join(unicodedata.normalize('NFKD', str(name).lower())
-                                            .encode('ASCII', 'ignore')
-                                            .decode('ASCII')
-                                            .split())
-                    
-                        nombre_norm = normalize_name(nombre_jugador)
+                        # Normalizar nombre para búsqueda
+                        nombre_norm = normalize_name(nombre_jugador_corregido)
                         print(f"Nombre normalizado para búsqueda: {nombre_norm}")
                     
-                        # Posibles columnas de nombre
-                        name_cols = ['nombre_completo', 'short_name']
-                    
-                        found_match = False
-                        for col in name_cols:
-                            if col in jugadores_master.columns:
-                                # Normalizar nombres del master
-                                jugadores_master['nombre_norm'] = jugadores_master[col].apply(normalize_name)
+                        # Buscar coincidencia en el archivo maestro
+                        for idx, row in maestro_df.iterrows():
+                            if 'short_name' in maestro_df.columns:
+                                row_short_name_norm = normalize_name(str(row['short_name']))
                             
-                                # Buscar coincidencias exactas primero
-                                exact_matches = jugadores_master[jugadores_master['nombre_norm'] == nombre_norm]
-                            
-                                if not exact_matches.empty:
-                                    matched_row = exact_matches.iloc[0]
-                                    print(f"Coincidencia exacta encontrada en columna {col}: {matched_row[col]}")
-                                    found_match = True
-                                else:
-                                    # Buscar coincidencias parciales
-                                    partial_matches = jugadores_master[jugadores_master['nombre_norm'].str.contains(nombre_norm, na=False)]
+                                # Si hay coincidencia por nombre
+                                if row_short_name_norm == nombre_norm or normalize_name(str(row['nombre_completo'])).find(nombre_norm) >= 0:
+                                    print(f"Coincidencia encontrada: {row['nombre_completo']}")
                                 
-                                    if not partial_matches.empty:
-                                        matched_row = partial_matches.iloc[0]
-                                        print(f"Coincidencia parcial encontrada en columna {col}: {matched_row[col]}")
-                                        found_match = True
-                                    else:
-                                        # Si no hay coincidencias, intentar con partes del nombre
-                                        name_parts = nombre_norm.split()
-                                        for part in name_parts:
-                                            if len(part) > 3:  # Solo usar partes significativas
-                                                part_matches = jugadores_master[jugadores_master['nombre_norm'].str.contains(part, na=False)]
-                                                if not part_matches.empty:
-                                                    matched_row = part_matches.iloc[0]
-                                                    print(f"Coincidencia por parte del nombre '{part}' en columna {col}: {matched_row[col]}")
-                                                    found_match = True
-                                                    break
-                            
-                                if found_match:
-                                    # Actualizar campos si están disponibles
-                                    if 'id_sofascore' in matched_row:
-                                        jugador['id_sofascore'] = matched_row['id_sofascore']
-                                        print(f"ID Sofascore encontrado: {jugador['id_sofascore']}")
+                                    # Actualizar datos del jugador
+                                    jugador['nombre'] = row['nombre_completo']
                                 
-                                    if 'ruta_foto' in matched_row and not pd.isna(matched_row['ruta_foto']):
-                                        jugador['foto_url'] = matched_row['ruta_foto']
-                                        print(f"URL de foto encontrada: {jugador['foto_url']}")
-                                    elif 'image_sofascore' in matched_row and not pd.isna(matched_row['image_sofascore']):
-                                        jugador['foto_url'] = matched_row['image_sofascore']
-                                        print(f"URL de foto Sofascore encontrada: {jugador['foto_url']}")
+                                    if 'id_sofascore' in maestro_df.columns:
+                                        jugador['id_sofascore'] = int(float(row['id_sofascore'])) if not pd.isna(row['id_sofascore']) else None
                                 
-                                    if 'pais' in matched_row and not pd.isna(matched_row['pais']):
-                                        jugador['nacionalidad'] = matched_row['pais']
-                                        jugador['pais'] = matched_row['pais']
+                                    if 'ruta_foto' in maestro_df.columns:
+                                        jugador['foto_url'] = row['ruta_foto']
+                                    elif 'image_sofascore' in maestro_df.columns:
+                                        jugador['foto_url'] = row['image_sofascore']
+                                
+                                    if 'pais' in maestro_df.columns:
+                                        jugador['nacionalidad'] = row['pais']
                                 
                                     break
                     
-                        if not found_match:
-                            print(f"No se encontraron coincidencias para {nombre_jugador} en el archivo maestro")
-                
                     except Exception as e:
-                        print(f"Error al acceder al archivo maestro: {e}")
+                        print(f"Error al procesar archivo maestro: {e}")
                         import traceback
                         traceback.print_exc()
             
                 print(f"Datos finales del jugador: {jugador}")
+
+                jugadores_respaldo = {
+                   'Julián Álvarez': {                            
+                        'nombre_completo': 'Julián Álvarez',
+                        'short_name': 'Julián',
+                        'id_sofascore': 944656,
+                        'ruta_foto': '/assets/players/19.png'
+                    },
+                    'Axel Witsel': {
+                        'nombre_completo': 'Axel Witsel',
+                        'short_name': 'Witsel',
+                        'id_sofascore': 35612,
+                        'ruta_foto': '/assets/players/20.png'
+                    },
+                    'Javi Galán': {
+                        'nombre_completo': 'Javi Galán',
+                        'short_name': 'Galán',
+                        'id_sofascore': 825133,
+                        'ruta_foto': '/assets/players/21.png'
+                    },
+                    'Giuliano Simeone': {
+                        'nombre_completo': 'Giuliano Simeone',
+                        'short_name': 'Giuliano',
+                        'id_sofascore': 1099352,
+                        'ruta_foto': '/assets/players/22.png'
+                    },
+                    'Reinildo Mandava': {
+                        'nombre_completo': 'Reinildo Mandava',
+                        'short_name': 'Reinildo',
+                        'id_sofascore': 831424,
+                        'ruta_foto': '/assets/players/23.png'
+                    },
+                    'Robin Le Normand': {
+                        'nombre_completo': 'Robin Le Normand',
+                        'short_name': 'Le Normand',
+                        'id_sofascore': 787751,
+                        'ruta_foto': '/assets/players/24.png'
+                    },
+                    'Adrián Niño': {
+                        'nombre_completo': 'Adrián Niño',
+                        'short_name': 'Niño',
+                        'id_sofascore': 1402927,
+                        'ruta_foto': '/assets/players/24.png'
+                    }
+                }
+
+                # Buscar por nombre normalizado
+                nombre_norm = normalize_name(nombre_jugador_corregido)
+                if nombre_norm in jugadores_respaldo:
+                    print(f"Usando información de respaldo para {nombre_jugador_corregido}")
+                    info_respaldo = jugadores_respaldo[nombre_norm]
+                    for key, value in info_respaldo.items():
+                        jugador[key] = value
+
+
                 return jugador
             else:
                 print(f"No se encontraron datos básicos para {nombre_jugador}")
                 # Datos por defecto si no se encuentra
                 return {
-                    'nombre': nombre_jugador,
+                    'nombre': nombre_jugador_corregido,
                     'posicion': 'No disponible',
                     'edad': 'No disponible',
                     'id_sofascore': None,
                     'foto_url': '/assets/imagenes/player_placeholder.png',
-                    'nacionalidad': 'No disponible',
-                    'pais': 'No disponible',
-                    'altura': 'No disponible',
-                    'peso': 'No disponible'
+                    'nacionalidad': 'ESP',
                 }
-                
         except Exception as e:
             print(f"Error al cargar datos del jugador {nombre_jugador}: {e}")
             import traceback
@@ -198,13 +433,8 @@ def register_physical_data_callbacks(app):
                 'edad': 'No disponible',
                 'id_sofascore': None,
                 'foto_url': '/assets/imagenes/player_placeholder.png',
-                'nacionalidad': 'No disponible',
-                'pais': 'No disponible',
-                'altura': 'No disponible',
-                'peso': 'No disponible'
+                'nacionalidad': 'ESP',
             }
-    
-    # El resto de las funciones (normalizar_datos, obtener_heatmap) permanecen sin cambios
 
     # Callback para actualizar los datos del jugador cuando se selecciona uno nuevo
     @app.callback(
@@ -234,101 +464,75 @@ def register_physical_data_callbacks(app):
         [Input('datos-jugador-store', 'data')]
     )
     def mostrar_info_jugador(datos):
-        # En mostrar_info_jugador:
-        print(f"Info del jugador: {jugador}")
-        print(f"ID Sofascore: {jugador.get('id_sofascore')}")
         if not datos or 'jugador' not in datos:
             return html.Div("Selecciona un jugador para ver su información."), html.Div()
-        
+    
         jugador = datos['jugador']
-        
-        # Crear componente de información del jugador
+        print(f"Info del jugador: {jugador}")
+    
+        if 'id_sofascore' in jugador:
+            print(f"ID Sofascore: {jugador.get('id_sofascore')}")
+    
+        # Crear componente de información del jugador (simplificado)
         info_jugador = html.Div([
             dbc.Row([
-                # Imagen del jugador (usar la URL de la imagen si existe)
+                # Imagen del jugador
                 dbc.Col([
                     html.Img(
                         src=jugador.get('foto_url', '/assets/imagenes/player_placeholder.png'),
-                        style={'max-width': '100%', 'max-height': '150px', 'border-radius': '5px'},
+                        style={'max-width': '100%', 'max-height': '180px', 'border-radius': '5px'},
                         className="mb-2"
                     )
                 ], width=4),
-                
+            
                 # Información básica del jugador
                 dbc.Col([
-                    html.H4(jugador['nombre'], className="mb-2"),
+                    html.H4(jugador.get('nombre', jugador.get('nombre_display', 'No disponible')), className="mb-3"),
                     html.P([
                         html.Span("Nacionalidad: ", className="fw-bold"),
-                        html.Span(jugador.get('nacionalidad', jugador.get('pais', 'No disponible')))
-                    ], className="mb-1"),
+                        html.Span(jugador.get('nacionalidad', 'ESP'))
+                    ], className="mb-2"),
                     html.P([
                         html.Span("Posición: ", className="fw-bold"),
                         html.Span(jugador.get('posicion', 'No disponible'))
-                    ], className="mb-1"),
+                    ], className="mb-2"),
                     html.P([
                         html.Span("Edad: ", className="fw-bold"),
                         html.Span(str(jugador.get('edad', 'No disponible')))
-                    ], className="mb-1"),
-                    html.P([
-                        html.Span("Altura: ", className="fw-bold"),
-                        html.Span(f"{jugador.get('altura', 'No disponible')} cm" if jugador.get('altura') != 'No disponible' else "No disponible")
-                    ], className="mb-1"),
-                    html.P([
-                        html.Span("Peso: ", className="fw-bold"),
-                        html.Span(f"{jugador.get('peso', 'No disponible')} kg" if jugador.get('peso') != 'No disponible' else "No disponible")
-                    ], className="mb-1"),
-                    html.Hr(),
-                    html.H5("Estadísticas Destacadas", className="mt-2 mb-2"),
-                    html.Div([
-                        dbc.Row([
-                            dbc.Col([
-                                html.P([
-                                    html.Span("Distancia media: ", className="fw-bold"),
-                                    html.Span(f"{jugador.get('avg_distancia', 'N/A')} m")
-                                ], className="mb-1"),
-                                html.P([
-                                    html.Span("Velocidad máxima: ", className="fw-bold"),
-                                    html.Span(f"{jugador.get('max_velocidad', 'N/A')} km/h")
-                                ], className="mb-1"),
-                            ], width=6),
-                            dbc.Col([
-                                html.P([
-                                    html.Span("Sprints por partido: ", className="fw-bold"),
-                                    html.Span(f"{jugador.get('avg_sprints', 'N/A')}")
-                                ], className="mb-1"),
-                                html.P([
-                                    html.Span("Distancia máxima: ", className="fw-bold"),
-                                    html.Span(f"{jugador.get('max_distancia', 'N/A')} m")
-                                ], className="mb-1"),
-                            ], width=6),
-                        ])
-                    ], className="mt-2")
+                    ], className="mb-2"),
                 ], width=8)
             ])
         ])
-        
+    
         # Intentar obtener y mostrar el heatmap
         heatmap_container = html.Div([
             html.H5("Mapa de Calor", className="mb-2"),
             html.P("El mapa de calor no está disponible para este jugador.", className="text-muted")
         ])
-        
-        # Si tenemos ID de sofascore, generamos el heatmap en un componente aparte
+    
+        # Si tenemos ID de sofascore, generamos el heatmap
         if 'id_sofascore' in jugador and jugador['id_sofascore']:
-            heatmap_container = html.Div([
-                html.H5("Mapa de Calor (Posicionamiento)", className="mb-2"),
-                html.Div([
-                    html.Img(
-                        id="heatmap-imagen",
-                        src=f"/heatmap/{jugador['id_sofascore']}",  # Esta ruta la manejaremos con una función en el servidor
-                        style={'max-width': '100%', 'border-radius': '5px'},
-                        className="mt-2"
-                    )
-                ], id="heatmap-imagen-container")
-            ])
-        
+            try:
+                from utils.heatmap_generator import generar_heatmap
+                heatmap_base64 = generar_heatmap(jugador['id_sofascore'])
+                heatmap_container = html.Div([
+                    html.H5("Mapa de Calor (Posicionamiento)", className="mb-2"),
+                   html.Div([
+                        html.Img(
+                            src=f"data:image/png;base64,{heatmap_base64}",
+                            style={'max-width': '100%', 'border-radius': '5px'},
+                            className="mt-2"
+                        )
+                    ], id="heatmap-imagen-container")
+                ])
+            except Exception as e:
+                print(f"Error al generar heatmap: {e}")
+                heatmap_container = html.Div([
+                    html.H5("Mapa de Calor", className="mb-2"),
+                    html.P(f"Error al generar mapa de calor: {str(e)}", className="text-danger")
+                ])
+    
         return info_jugador, heatmap_container
-    # El resto de los callbacks (grafico-barras-fisico, grafico-radar-fisico, etc.) permanecen sin cambios
     
     # Callback para el gráfico de barras
     @app.callback(
@@ -376,8 +580,6 @@ def register_physical_data_callbacks(app):
         )
         
         return fig
-    
-    # Los demás callbacks (grafico-radar-fisico, grafico-scatter-fisico, etc.) permanecen sin cambios
     
     # Callback para el radar chart
     @app.callback(
@@ -515,91 +717,196 @@ def register_physical_data_callbacks(app):
                     line=dict(color='rgba(0, 0, 0, 0.5)', dash='dash')
                 )
             )
-        except:
+        except Exception as e:
             # Si hay error en la línea de tendencia, seguimos sin ella
+            print(f"Error en línea de tendencia: {e}")
             pass
         
         return fig
     
-    # Callback para exportar a PDF
     @app.callback(
-        Output('descargar-pdf-fisico', 'data'),
-        [Input('exportar-pdf-fisico-btn', 'n_clicks')],
-        [State('datos-jugador-store', 'data'),
-         State('metricas-barras-dropdown', 'value'),
-         State('metricas-radar-checklist', 'value')],
-        prevent_initial_call=True
+        [Output('datos-fisicos-table', 'columns'),
+        Output('datos-fisicos-table', 'data'),
+        Output('datos-fisicos-table', 'style_data_conditional')],
+        [Input('datos-jugador-store', 'data'),
+        Input('metricas-table-dropdown', 'value')]
     )
-    def exportar_pdf_fisico(n_clicks, datos, metricas_barras, metricas_radar):
-        if not n_clicks or not datos:
-            return None
+    def actualizar_tabla_datos(datos, metricas_seleccionadas):
+        # Configuración de estilos base que siempre se aplican
+        style_data_conditional = [
+            # Filas alternadas con color de fondo diferente
+            {
+                'if': {'row_index': 'odd'},
+                'backgroundColor': CONFIG['team_colors']['background_secondary']
+            },
+            # Resaltar la columna de Jornada
+            {
+                'if': {'column_id': 'Jornada'},
+                'fontWeight': 'bold',
+                'backgroundColor': f'rgba({int(CONFIG["team_colors"]["primary"][1:3], 16)}, {int(CONFIG["team_colors"]["primary"][3:5], 16)}, {int(CONFIG["team_colors"]["primary"][5:7], 16)}, 0.1)'
+            }
+        ]
         
-        jugador = datos['jugador']
-        nombre_jugador = jugador['nombre']
+        # Verificar si tenemos datos y métricas seleccionadas
+        if not datos or 'condicionales' not in datos or not metricas_seleccionadas:
+            return [], [], style_data_conditional  # Devolver estilos base incluso sin datos
         
-        # Crear un buffer en memoria para el PDF
-        buffer = io.BytesIO()
-        c = canvas.Canvas(buffer, pagesize=letter)
+        # Convertir a DataFrame
+        df = pd.DataFrame(datos['condicionales'])
         
-        # Añadir título
-        c.setFont("Helvetica-Bold", 18)
-        c.drawString(50, 750, f"Atlético de Madrid - Informe Condicional")
+        # Definir las columnas base (siempre mostrar Jornada primero)
+        columns = [{'name': 'Jornada', 'id': 'Jornada'}]
         
-        # Información del jugador
-        c.setFont("Helvetica-Bold", 14)
-        c.drawString(50, 720, f"Jugador: {nombre_jugador}")
+        # Añadir columnas para cada métrica seleccionada
+        for metrica in metricas_seleccionadas:
+            # Obtener nombre legible para la métrica
+            nombre_metrica = metrica.replace('_', ' ').title()
+            columns.append({'name': nombre_metrica, 'id': metrica})
         
-        c.setFont("Helvetica", 12)
-        c.drawString(50, 700, f"Posición: {jugador.get('posicion', 'No disponible')}")
-        c.drawString(50, 685, f"Edad: {jugador.get('edad', 'No disponible')}")
+        # Filtrar los datos para mostrar solo las columnas seleccionadas
+        data = []
+        for i, row in df.iterrows():
+            data_row = {'Jornada': row['Jornada']}
+            for metrica in metricas_seleccionadas:
+                if metrica in row:
+                    # Formatear valores numéricos
+                    if pd.api.types.is_numeric_dtype(df[metrica]):
+                        data_row[metrica] = f"{row[metrica]:.1f}" if isinstance(row[metrica], float) else str(row[metrica])
+                    else:
+                        data_row[metrica] = str(row[metrica])
+            data.append(data_row)
         
-        # Información de métricas analizadas
-        c.setFont("Helvetica-Bold", 14)
-        c.drawString(50, 650, "Métricas Analizadas:")
+        # Enfoque más simple: usar directamente los índices para los valores máximos y mínimos
+        for metrica in metricas_seleccionadas:
+            if metrica in df.columns and pd.api.types.is_numeric_dtype(df[metrica]):
+                try:
+                    # Encontrar índices de valores máximos y mínimos
+                    serie_metrica = df[metrica]
+                    serie_sin_na = serie_metrica.dropna()
+                    if not serie_sin_na.empty:
+                        idx_max = serie_sin_na.idxmax()
+                        idx_min = serie_sin_na.idxmin()
+                        
+                        # Convertir a índices de lista si es necesario
+                        if isinstance(idx_max, (int, np.integer)):
+                            idx_max_list = df.index.get_loc(idx_max)
+                        else:
+                            idx_max_list = df.index.tolist().index(idx_max)
+                            
+                        if isinstance(idx_min, (int, np.integer)):
+                            idx_min_list = df.index.get_loc(idx_min)
+                        else:
+                            idx_min_list = df.index.tolist().index(idx_min)
+                        
+                        # Añadir estilo para valor máximo
+                        style_data_conditional.append({
+                            'if': {'row_index': idx_max_list, 'column_id': metrica},
+                            'backgroundColor': 'rgba(76, 175, 80, 0.7)',  # Verde
+                            'fontWeight': 'bold',
+                            'color': 'white'
+                        })
+                        
+                        # Añadir estilo para valor mínimo (solo si es diferente del máximo)
+                        if idx_min != idx_max:
+                            style_data_conditional.append({
+                                'if': {'row_index': idx_min_list, 'column_id': metrica},
+                                'backgroundColor': 'rgba(244, 67, 54, 0.7)',  # Rojo
+                                'fontWeight': 'bold',
+                                'color': 'white'
+                            })
+                            
+                except Exception as e:
+                    print(f"Error al procesar estilos para métrica {metrica}: {e}")
+                    continue
         
-        c.setFont("Helvetica", 12)
-        y_pos = 630
-        for i, metrica in enumerate(metricas_barras[:3]):
-            c.drawString(70, y_pos - i*15, f"• {metrica.replace('_', ' ').title()}")
-        
-        # Secciones para los gráficos
-        c.setFont("Helvetica-Bold", 14)
-        c.drawString(50, 560, "1. Evolución por Jornada")
-        c.drawString(50, 360, "2. Perfil Condicional (Radar)")
-        
-        # Segunda página
-        c.showPage()
-        c.setFont("Helvetica-Bold", 14)
-        c.drawString(50, 750, "3. Relación entre Variables")
-        
-        # Información adicional
-        c.setFont("Helvetica", 12)
-        c.drawString(50, 500, "Este informe muestra el análisis condicional completo")
-        c.drawString(50, 485, f"para el jugador {nombre_jugador} del Atlético de Madrid.")
-        
-        # Fecha actual
-        from datetime import datetime
-        fecha_actual = datetime.now().strftime("%d/%m/%Y")
-        c.drawString(50, 100, f"Fecha del informe: {fecha_actual}")
-        
-        # Firma
-        c.drawString(400, 100, "Ramón González MPAD")
-        
-        c.showPage()
-        c.save()
-        
-        buffer.seek(0)
-        return dcc.send_bytes(buffer.getvalue(), f"AtleticoMadrid_Informe_Condicional_{nombre_jugador.replace(' ', '_')}.pdf")
+        return columns, data, style_data_conditional
     
-    # Callback para mostrar mensaje de éxito del PDF
+    # Callback para exportar PDF incluyendo la DataTable
     @app.callback(
-        Output('pdf-fisico-status', 'children'),
-        [Input('exportar-pdf-fisico-btn', 'n_clicks')],
+        [Output('descargar-pdf-physical', 'data'),
+        Output('pdf-status-physical', 'children')],
+        [Input('exportar-pdf-btn-physical', 'n_clicks')],
+        [State('url', 'pathname'),
+        State('datos-jugador-store', 'data'),
+        State('metricas-barras-dropdown', 'value'),
+        State('metricas-radar-checklist', 'value'),
+        State('scatter-x-dropdown', 'value'),
+        State('scatter-y-dropdown', 'value'),
+        State('scatter-size-dropdown', 'value'),
+        State('metricas-table-dropdown', 'value')],
         prevent_initial_call=True
     )
-    def actualizar_pdf_status_fisico(n_clicks):
-        if n_clicks:
-            return html.Span("¡PDF generado con éxito!", 
+    def exportar_pdf_physical_data(n_clicks, pathname, datos, metricas_barras, metricas_radar, 
+                                scatter_x, scatter_y, scatter_size, metricas_table):
+        ctx = dash.callback_context
+        print(f"Physical PDF callback triggered: {n_clicks}, pathname: {pathname}")
+
+        if not ctx.triggered or not n_clicks or pathname != '/physical-data':
+            return None, ""
+
+        if not datos:
+            return None, ""
+
+        # Información del jugador
+        jugador = datos['jugador']
+        nombre_jugador = jugador.get('nombre', 'Jugador')
+        print(f"Generando PDF para {nombre_jugador}") 
+
+        # Generar gráficos usando las métricas seleccionadas
+        grafico_barras = actualizar_grafico_barras(datos, metricas_barras)
+        grafico_radar = actualizar_grafico_radar(datos, metricas_radar)
+        grafico_scatter = actualizar_grafico_scatter(
+            datos, 
+            scatter_x, 
+            scatter_y, 
+            scatter_size
+        )
+
+        # Obtener datos actuales de la tabla - CORREGIR ESTA LÍNEA
+        tabla_columnas, tabla_datos, _ = actualizar_tabla_datos(datos, metricas_table)  # Ahora desempaquetamos 3 valores, ignorando el tercero (_)
+
+        # Crear una figura de tabla para el PDF
+        # Extraer nombres de columnas y datos
+        encabezados = [col['name'] for col in tabla_columnas]
+        
+        tabla_df = pd.DataFrame(tabla_datos)
+        
+        # Solo incluir hasta 10 filas para que quepa en el PDF
+        if len(tabla_df) > 10:
+            tabla_df = tabla_df.head(10)
+        
+        # Crear figura de tabla
+        fig_tabla = go.Figure(data=[go.Table(
+            header=dict(
+                values=encabezados,
+                fill_color=CONFIG['team_colors']['primary'],
+                align='center',
+                font=dict(color=CONFIG['team_colors']['accent'], size=12)
+            ),
+            cells=dict(
+                values=[tabla_df[col['id']] if col['id'] in tabla_df else [] for col in tabla_columnas],
+                fill_color=CONFIG['team_colors']['background'],
+                align='center'
+            )
+        )])
+        
+        fig_tabla.update_layout(
+            title=f"Datos por jornada - {nombre_jugador}"
+        )
+
+        # Preparar gráficos para exportación
+        graficos = [grafico_barras, grafico_radar, grafico_scatter, fig_tabla]
+
+        # Exportar PDF
+        pdf_bytes = exportar_pdf(
+            n_clicks, 
+            graficos, 
+            f"Atlético de Madrid - Informe Físico de {nombre_jugador}", 
+            "Métricas Físicas", 
+            [1, 10],  # Rango de jornadas 
+            [nombre_jugador]
+        )
+
+        return pdf_bytes, html.Span("¡PDF de Datos Físicos generado!", 
                         className="ms-2 fw-bold", 
-                        style={"color": "#4CAF50"})  # Color verde para confirmación
-        return ""
+                        style={"color": "#4CAF50"})

@@ -2,6 +2,7 @@
 from callbacks.auth_callbacks import register_auth_callbacks
 from callbacks.player_stats_callbacks import register_player_stats_callbacks
 from callbacks.navbar_callbacks import register_navbar_callbacks
+from callbacks.physical_data_callbacks import register_physical_data_callbacks
 
 def register_callbacks(app):
     """
@@ -10,3 +11,4 @@ def register_callbacks(app):
     register_auth_callbacks(app)
     register_player_stats_callbacks(app)
     register_navbar_callbacks(app)
+    register_physical_data_callbacks(app)
