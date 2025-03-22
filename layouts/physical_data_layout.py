@@ -408,9 +408,9 @@ def physical_data_layout():
             dbc.Row([
                 dbc.Col([
                     html.Div([
-                        dcc.Download(id="descargar-pdf-physical"),  # Componente para manejar la descarga
-                        crear_boton_exportar_pdf_fisico(),          # Botón para exportar
-                        html.Span(id="pdf-status-physical", className="ms-2")  # Elemento para mostrar el estado
+                        dcc.Download(id="descargar-pdf-physical"),  
+                        crear_boton_exportar_pdf_fisico(),          
+                        html.Span(id="pdf-status-physical", className="ms-2")  
                     ], className="d-flex align-items-center")
                 ], width=12)
             ]),

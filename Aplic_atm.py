@@ -1,5 +1,4 @@
 # Importación de bibliotecas
-
 import dash
 from dash import html, dcc
 import dash_bootstrap_components as dbc
@@ -192,4 +191,4 @@ def display_page(pathname):
 
 # Iniciar el servidor
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    app.run_server(host='0.0.0.0', port=8050, debug=False)

@@ -50,6 +50,10 @@ Aplicación web de visualización de estadísticas de jugadores del Atlético de
   - data_viz.py (visualizaciones página rendimiento)
   - db_template (archivo que simula base de datos para los usuarios y contraseñas)
 
+- **.dockerignore**
+
+- **Dockerfile**
+
 - **.gitignore**
 
 - **Aplic_Atm.py**: "python Aplic_atm.py"
@@ -67,6 +71,8 @@ Aplicación web de visualización de estadísticas de jugadores del Atlético de
 - SQLite
 - Pandas
 - Plotly Express
+- Docker
+- Git
 
 ## Instalación
 

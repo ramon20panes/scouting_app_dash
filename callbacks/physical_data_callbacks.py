@@ -30,11 +30,9 @@ def register_physical_data_callbacks(app):
     
     # Función para normalizar nombres (quitar acentos, minúsculas)
     def normalize_name(name):
-        # Normalizar, convertir a minúsculas y quitar espacios extras
         if not name:
             return ""
         
-         # Reemplazar caracteres específicos antes de la normalización
         name = str(name).lower()
         name = name.replace('ø', 'o')
         name = name.replace('æ', 'ae')
@@ -45,7 +43,7 @@ def register_physical_data_callbacks(app):
                         .decode('ASCII')
                         .split())
     
-    # AÑADE ESTA FUNCIÓN - Define el diccionario de jugadores una sola vez
+    # Define el diccionario de jugadores una sola vez
     def get_jugadores_default():
         return {
             'Julián Álvarez': {                            
@@ -96,11 +94,11 @@ def register_physical_data_callbacks(app):
         """Carga el archivo maestro de jugadores"""
         try:
             if os.path.exists('data/jugadores_master.csv'):
-                # Intentar diferentes configuraciones de lectura
+                # Diferentes configuraciones de lectura
                 try:
-                    # Intentar leer con tab como separador
+                    # Con tab como separador
                     maestro_df = pd.read_csv('data/jugadores_master.csv', sep='\t', encoding='utf-8')
-                    # Verificar si tiene una sola columna con múltiples separadores dentro
+                    
                     if len(maestro_df.columns) == 1 and ';' in maestro_df.columns[0]:                        
                         primera_col = maestro_df.columns[0]
                         nuevas_cols = primera_col.split(';')
@@ -111,21 +109,21 @@ def register_physical_data_callbacks(app):
                         print("Archivo maestro cargado con separador tab")
                 except Exception as e1:
                     try:
-                        # Intentar con separador punto y coma
+                        # Con separador punto y coma
                         maestro_df = pd.read_csv('data/jugadores_master.csv', sep=';', encoding='utf-8')
                         
                     except Exception as e2:
                         try:
-                            # Intentar con separador coma
+                            # Con separador coma
                             maestro_df = pd.read_csv('data/jugadores_master.csv', encoding='utf-8')
                         except Exception as e3:                            
-                            # CAMBIO AQUÍ - Usar función en lugar del diccionario
+                            # Usar función en lugar del diccionario
                             jugadores_info = get_jugadores_default()
                             return pd.DataFrame.from_dict(jugadores_info, orient='index').reset_index().rename(columns={'index': 'nombre'})
 
                 # Normalizar columnas cruciales
                 if 'nombre_completo' in maestro_df.columns:
-                    maestro_df['nombre'] = maestro_df['nombre_completo']  # Asegurar que existe columna 'nombre'
+                    maestro_df['nombre'] = maestro_df['nombre_completo']  
             
                 if 'nombre_completo' in maestro_df.columns and 'nombre_completo_norm' not in maestro_df.columns:
                     maestro_df['nombre_completo_norm'] = maestro_df['nombre_completo'].apply(normalize_name)
@@ -151,14 +149,14 @@ def register_physical_data_callbacks(app):
                 return maestro_df
             else:
                 print("No se encontró el archivo maestro. Usando datos fijos para jugadores clave.")
-                # CAMBIO AQUÍ - Usar función en lugar del diccionario
+                # Usar función en lugar del diccionario
                 jugadores_info = get_jugadores_default()
                 return pd.DataFrame.from_dict(jugadores_info, orient='index').reset_index().rename(columns={'index': 'nombre'})
         except Exception as e:
             print(f"Error al cargar archivo maestro: {e}")
             import traceback
             traceback.print_exc()
-            # CAMBIO AQUÍ - Usar función en lugar del diccionario
+            # Usar función en lugar del diccionario
             jugadores_info = get_jugadores_default()
             return pd.DataFrame.from_dict(jugadores_info, orient='index').reset_index().rename(columns={'index': 'nombre'})
     
@@ -378,7 +376,7 @@ def register_physical_data_callbacks(app):
         
         # Código original para mostrar información del jugador
         info_jugador = html.Div([
-            # Tu código actual para mostrar info del jugador...
+            
             dbc.Row([
                 # Imagen del jugador
                 dbc.Col([
@@ -456,7 +454,7 @@ def register_physical_data_callbacks(app):
         [Input('url', 'pathname')]
     )
     def actualizar_opciones_jugador(pathname):
-        # Solo ejecutar este callback en la página de datos físicos
+        
         if pathname != '/physical-data':
             return [], None
         
@@ -484,7 +482,7 @@ def register_physical_data_callbacks(app):
             
             # Añadir partes del nombre de usuario
             for part in username_parts:
-                if len(part) > 3:  # Ignorar palabras muy cortas
+                if len(part) > 3:  
                     possible_matches.append(part)
             
             # 2. Buscar coincidencias entre jugadores
@@ -555,14 +553,14 @@ def register_physical_data_callbacks(app):
                 # Eliminar duplicados
                 jugadores_coincidentes = list(set(jugadores_coincidentes))
                 options = [{'label': jugador, 'value': jugador} for jugador in jugadores_coincidentes]
-                default_value = jugadores_coincidentes[0]  # Usar el primer jugador como valor predeterminado
-                
+                default_value = jugadores_coincidentes[0]  
+
             else:
                 options = []
                 default_value = None
                 print(f"No se encontró coincidencia para el usuario: {current_user.id}")
         else:
-            # AQUÍ ESTÁ EL CAMBIO: Para administradores, crear las opciones sin intentar recodificar
+            # Para administradores, crear las opciones sin intentar recodificar            
             options = []
             for jugador in jugadores:
                 # Agregar el nombre directamente, sin manipulación
@@ -1006,7 +1004,7 @@ def register_physical_data_callbacks(app):
                 'if': {'column_id': 'Jornada'},
                 'fontWeight': 'bold',
                 'backgroundColor': '#0A1A2A',
-                'color': '#FFFFFF'  # Texto blanco para la columna de jornadas
+                'color': '#FFFFFF'  
             }
         ]
         

@@ -34,6 +34,13 @@ ROLES = {
     }
 }
 
+# Estilos reusables para componentes
+GRAPH_STYLE = {
+  'height': '300px',
+  'width': '100%',
+  'minWidth': '300px'
+}
+
 # Configuración de la base de datos
 DB_CONFIG = {
     "db_path": os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "atm_login.db")

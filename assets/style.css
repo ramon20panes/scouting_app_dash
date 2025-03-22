@@ -193,3 +193,25 @@ button[id*="exportar-pdf"] {
     object-fit: contain;
 }
 
+/* En assets/style.css */
+.dashboard-container {
+    display: flex;
+    flex-wrap: wrap;
+}
+  
+.graph-card {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    margin: 10px;
+    transition: all 0.3s;
+}
+  
+/* Reglas responsivas */
+@media (max-width: 768px) {
+    .graph-card {
+        width: 100% !important;
+    }
+    
+    .dashboard-row {
+        flex-direction: column !important;
+    }
+}
