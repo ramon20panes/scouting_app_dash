@@ -32,23 +32,11 @@ def player_stats_layout():
         estadisticas = [col for col in df.columns if col not in columnas_no_stats]
         
         return html.Div([
-            html.H1("Dashboard estadísticas partido", className="text-center mb-4"),
+            html.H1("Estadísticas partido", className="text-center mb-4"),
             html.Hr(),
             
             # Contenedor principal
-            html.Div([
-                # Slider de jornada (oculto pero funcional)
-                html.Div([
-                    dcc.RangeSlider(
-                        id='jornada-slider',
-                        min=df['Jornada'].min(),
-                        max=df['Jornada'].max(),
-                        value=[df['Jornada'].min(), df['Jornada'].max()],
-                        marks={i: str(i) for i in range(df['Jornada'].min(), df['Jornada'].max()+1)},
-                        className="mb-4"
-                    )
-                ], style={"display": "none"}),  # Oculto pero aún funcional
-                
+            html.Div([                
                 # Primera fila de gráficos - Línea y Scatter
                 dbc.Row([
                     # Gráfico 1: Evolución por posición (Gráfico de líneas)

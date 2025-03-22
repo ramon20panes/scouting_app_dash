@@ -91,7 +91,7 @@ def physical_data_layout():
                     'Giuliano Simeone', 'Reinildo Mandava', 'Robin Le Normand', 'Adrián Niño'
                 ],
                 'short_name': [
-                    'Musso', 'Giménez', 'Azpilcueta', 'Gallagher', 'De Paul', 'Koke', 
+                    'Musso', 'Giménez', 'Azpilicueta', 'Gallagher', 'De Paul', 'Koke', 
                     'Griezmann', 'Barrios', 'Sorloth', 'Correa', 'Lemar', 'Lino', 
                     'Oblak', 'Llorente', 'Lenglet', 'Molina', 'Riquelme', 'Julián', 
                     'Witsel', 'Galán', 'Giuliano', 'Reinildo', 'Le Normand', 'Niño'
@@ -171,7 +171,7 @@ def physical_data_layout():
             className='mb-3'
         )        
         # Dropdown para métricas del gráfico de barras
-        default_metricas_barras = ['Distancia', 'Max_Speed', 'Sprints_Abs_Cnt']
+        default_metricas_barras = ['Distancia', 'Distancia_Explosiva', 'Steps_Count']
         dropdown_metricas_barras = dcc.Dropdown(
             id='metricas-barras-dropdown',
             options=[{'label': metric.replace('_', ' ').title(), 'value': metric} 
@@ -182,8 +182,8 @@ def physical_data_layout():
             style={'width': '100%'},
             className='mb-2'
         )        
-        # Dropdown para métricas del radar chart (preseleccionar 5)
-        default_metricas_radar = ['Distancia', 'Max_Speed', 'Sprints_Abs_Cnt', 'Aceleraciones', 'Deceleraciones']
+        # Dropdown para métricas del radar chart (preseleccionar 6)
+        default_metricas_radar = ['Max_Speed', 'Sprints_Abs_Cnt', 'Aceleraciones', 'Deceleraciones', 'Distancia']
         dropdown_radar = dcc.Dropdown(
             id='metricas-radar-checklist',  # Mantener el mismo ID para compatibilidad
             options=[{'label': metric.replace('_', ' ').title(), 'value': metric} 
@@ -240,18 +240,28 @@ def physical_data_layout():
                 # Perfil del jugador y heatmap
                 dbc.Col([
                     dbc.Card([
-                        dbc.CardHeader(html.H5("Perfil del Jugador", className="card-title")),
+                        dbc.CardHeader(html.H4("Perfil del Jugador", className="card-title fw-bold fs-4")),
                         dbc.CardBody([
-                            html.Div(id="info-jugador-container"),
-                            html.Div(id="heatmap-container", className="mt-3")
-                        ])
-                    ])
+                            # Contenedor de información del jugador
+                            html.Div(id="info-jugador-container", style={
+                                'maxHeight': '180px',  # Limitar altura
+                                'overflow': 'auto'     # Permitir scroll si es necesario
+                            }),
+                            # Contenedor del heatmap
+                            html.Div(id="heatmap-container", className="mt-3", style={
+                                'height': '220px',     # Altura fija para el heatmap
+                                'textAlign': 'center'
+                            })
+                        ], style={
+                            'padding': '0.75rem'  # Reducir padding interno
+                        })
+                    ], className="h-100")  # Asegurar que la tarjeta ocupe todo el alto disponible
                 ], md=6, className="mb-4"),                
                 # Gráfico de barras
                 dbc.Col([
                     dbc.Card([
                         dbc.CardHeader([
-                            html.H4("Evolución por Jornadas", className="card-title"),
+                            html.H4("Evolución por Jornadas", className="card-title fw-bold fs-4"),
                             html.Label("Selecciona métricas (hasta 3):", className="mt-2"),
                             dropdown_metricas_barras
                         ]),
@@ -267,13 +277,15 @@ def physical_data_layout():
                 dbc.Col([
                     dbc.Card([
                         dbc.CardHeader([
-                            html.H4("Datos por Jornada", className="card-title"),
+                            html.H4("Datos por Jornada", className="card-title fw-bold fs-4"),
                             html.Label("Selecciona métricas:", className="mt-2"),
                             dcc.Dropdown(
                                 id='metricas-table-dropdown',
                                 options=[{'label': metric.replace('_', ' ').title(), 'value': metric} 
                                     for metric in metricas_fisicas],
-                                value=['Distancia', 'Max_Speed', 'Sprints_Abs_Cnt'] if all(m in metricas_fisicas for m in ['Distancia', 'Max_Speed', 'Sprints_Abs_Cnt']) else metricas_fisicas[:3] if len(metricas_fisicas) >= 3 else metricas_fisicas,
+                                value=['Distancia', 'Max_Speed', 'HIBD', 'High_HR_m', 'HSR_Abs_m'] 
+                                    if all(m in metricas_fisicas for m in ['Distancia', 'Max_Speed', 'HIBD', 'High_HR_m', 'HSR_Abs_m']) 
+                                    else metricas_fisicas[:5] if len(metricas_fisicas) >= 5 else metricas_fisicas,
                                 multi=True,
                                 placeholder="Selecciona métricas para mostrar en la tabla",
                                 style={'width': '100%'},
@@ -286,34 +298,62 @@ def physical_data_layout():
                                 style_table={
                                     'overflowX': 'auto',
                                     'maxHeight': '400px',
-                                    'overflowY': 'auto'
+                                    'overflowY': 'auto',
+                                    'borderRadius': '4px',
+                                    'boxShadow': '0 2px 4px rgba(0, 0, 0, 0.2)'
                                 },
                                 style_header={
                                     'backgroundColor': CONFIG['team_colors']['primary'],
-                                    'color': CONFIG['team_colors']['accent'],
+                                    'color': '#FFFFFF',
                                     'fontWeight': 'bold',
                                     'textAlign': 'center',
-                                    'border': '1px solid white'
-                                },
+                                    'fontSize': '14px',
+                                    'padding': '12px 10px',
+                                    'border': '1px solid #183860'
+                                },                         
                                 style_cell={
                                     'textAlign': 'center',
-                                    'padding': '10px',
+                                    'padding': '10px 15px',
                                     'backgroundColor': CONFIG['team_colors']['background'],
-                                    'font-family': 'Arial, sans-serif'
+                                    'color': '#E8E8E8',
+                                    'font-family': 'Arial, sans-serif',
+                                    'fontSize': '13px',
+                                    'border': '1px solid #183860'
+                                },
+                                # Personalización específica para la columna de Jornada
+                                style_cell_conditional=[
+                                    {
+                                        'if': {'column_id': 'Jornada'},
+                                        'textAlign': 'center',
+                                        'fontWeight': 'bold',
+                                        'color': 'white',
+                                        'fontSize': '14px',
+                                        'backgroundColor': '#0A1A2A'
+                                    }
+                                ],
+                                style_data={
+                                    'color': '#E8E8E8',
+                                    'border': '1px solid #183860'
                                 },
                                 style_data_conditional=[
                                     {
                                         'if': {'row_index': 'odd'},
                                         'backgroundColor': CONFIG['team_colors']['background_secondary']
                                     },
-                                    # Resaltar la columna de Jornada
                                     {
                                         'if': {'column_id': 'Jornada'},
                                         'fontWeight': 'bold',
-                                        'backgroundColor': f'rgba({int(CONFIG["team_colors"]["primary"][1:3], 16)}, {int(CONFIG["team_colors"]["primary"][3:5], 16)}, {int(CONFIG["team_colors"]["primary"][5:7], 16)}, 0.1)'
+                                        'backgroundColor': '#0A1A2A',
+                                        'color': 'white' 
                                     }
                                 ],
-                                page_size=10,  
+                                css=[
+                                    {
+                                        'selector': '.dash-spreadsheet td.dash-cell.column-0',
+                                        'rule': 'color: white !important; background-color: #0A1A2A !important; font-weight: bold !important; font-size:'
+                                    }
+                                ],
+                                page_size=10,
                                 filter_action='none',
                                 sort_action='native',
                                 sort_mode='multi'
@@ -322,14 +362,13 @@ def physical_data_layout():
                     ])
                 ], width=12, className="mb-4")
             ]),
-
             # Tercera fila: Radar Chart y Scatter Plot
             dbc.Row([
                 # Radar Chart
                 dbc.Col([
                     dbc.Card([
                         dbc.CardHeader([
-                            html.H4("Perfil Condicional (Radar)", className="card-title"),
+                            html.H4("Perfil Condicional", className="card-title fw-bold fs-4"),
                             html.Label("Selecciona métricas (hasta 8):", className="mt-2"),
                             dropdown_radar
                         ]),
@@ -342,7 +381,7 @@ def physical_data_layout():
                 dbc.Col([
                     dbc.Card([
                         dbc.CardHeader([
-                            html.H4("Relación entre Variables", className="card-title"),
+                            html.H4("Relación entre Variables", className="card-title fw-bold fs-4"),
                             dbc.Row([
                                 dbc.Col([
                                     html.Label("Eje X:", className="mt-2"),

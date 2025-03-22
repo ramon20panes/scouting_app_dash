@@ -5,6 +5,7 @@ import pandas as pd
 from utils.data_viz import format_stat_name, crear_grafico_linea, crear_grafico_barras, crear_grafico_histograma, crear_grafico_scatter
 from utils.pdf_export import exportar_pdf
 from layouts.player_stats_layout import colores_jugadores, colores_por_posicion
+from utils.pdf_export import exportar_pdf_stats
 
 def register_player_stats_callbacks(app):
     """
@@ -30,11 +31,11 @@ def register_player_stats_callbacks(app):
         # Callback para actualizar el gráfico de línea
         @app.callback(
             Output('grafico-linea', 'figure'),
-            [Input('jornada-slider', 'value'),
-             Input('jugadores-dropdown', 'value'),
+            [Input('jugadores-dropdown', 'value'),
              Input('metrica-evolucion-dropdown', 'value')]
         )
-        def actualizar_grafico_linea(rango_jornadas, jugadores_seleccionados, metrica):
+        def actualizar_grafico_linea(jugadores_seleccionados, metrica):
+            rango_jornadas = [df['Jornada'].min(), df['Jornada'].max()]
             return crear_grafico_linea(df, rango_jornadas, jugadores_seleccionados, metrica, colores_jugadores)
         
         # Callback para actualizar el gráfico de barras
@@ -49,10 +50,10 @@ def register_player_stats_callbacks(app):
         # Callback para actualizar el histograma
         @app.callback(
             Output('grafico-histograma', 'figure'),
-            [Input('jornada-slider', 'value'),
-             Input('metrica-histograma-dropdown', 'value')]
+            [Input('metrica-histograma-dropdown', 'value')]
         )
-        def actualizar_grafico_histograma(rango_jornadas, metrica):
+        def actualizar_grafico_histograma(metrica):
+            rango_jornadas = [df['Jornada'].min(), df['Jornada'].max()]
             return crear_grafico_histograma(df, rango_jornadas, metrica)
         
         # Callback para actualizar el scatter plot
@@ -65,48 +66,40 @@ def register_player_stats_callbacks(app):
         def actualizar_grafico_scatter(jornada_seleccionada, metrica_x, metrica_y):
             return crear_grafico_scatter(df, jornada_seleccionada, metrica_x, metrica_y, colores_por_posicion)
         
-        # Callback para exportar PDF
+        # Callback para exportar PDF de estadísticas
         @app.callback(
             [Output('descargar-pdf-stats', 'data'),
             Output('pdf-status-stats', 'children')],
             [Input('exportar-pdf-btn-stats', 'n_clicks')],
-            [State('url', 'pathname'),
-            State('jornada-slider', 'value'),
-            State('metrica-evolucion-dropdown', 'value'),
-            State('jugadores-dropdown', 'value')],
+            [State('jugadores-dropdown', 'value'),
+            State('grafico-linea', 'figure'),
+            State('grafico-scatter', 'figure'),
+            State('grafico-barras', 'figure'),
+            State('grafico-histograma', 'figure')],
             prevent_initial_call=True
         )
-        def exportar_pdf_player_stats(n_clicks, pathname, rango_jornadas, estadistica, jugadores):
-            ctx = dash.callback_context
-    
-            if not ctx.triggered or not n_clicks or pathname != '/player-stats':
+        def exportar_pdf_estadisticas(n_clicks, jugadores, figura_linea, figura_scatter, figura_barras, figura_histograma):
+            if not n_clicks:
                 return None, ""
-    
-            print(f"Generando PDF de estadísticas para: {jugadores}")
-    
-            # Genera los gráficos
-            grafico_linea = crear_grafico_linea(df, rango_jornadas, jugadores, estadistica, colores_jugadores)
-            grafico_scatter = crear_grafico_scatter(df, rango_jornadas[0], 'Num_toques', 'Pases_compl', colores_por_posicion)
-            grafico_histograma = crear_grafico_histograma(df, rango_jornadas, estadistica)
-            grafico_barras = crear_grafico_barras(df, rango_jornadas[0], estadistica)
+            
+            try:
+                # Definir el rango de jornadas dentro de la función
+                rango_jornadas = [df['Jornada'].min(), df['Jornada'].max()]
 
-            # Lista de gráficos
-            graficos = [grafico_linea, grafico_scatter, grafico_histograma, grafico_barras]
-
-            # Exportar PDF
-            pdf_bytes = exportar_pdf(
-                n_clicks, 
-                graficos, 
-                "Atlético de Madrid - Informe de Rendimiento", 
-                estadistica, 
-                rango_jornadas, 
-                jugadores
-            )
-
-            return pdf_bytes, html.Span("¡PDF de Estadísticas generado!", 
-                                className="ms-2 fw-bold", 
-                                style={"color": "#4CAF50"})
-        
+                # Usar directamente las figuras actuales que se muestran en la interfaz
+                graficos = [figura_linea, figura_scatter, figura_barras, figura_histograma]
+                
+                # Exportar PDF
+                pdf_bytes = exportar_pdf_stats(n_clicks, graficos, jugadores, rango_jornadas)
+                if pdf_bytes:
+                    return pdf_bytes, html.Span("¡PDF generado!", className="ms-2 fw-bold", style={"color": "#4CAF50"})
+                else:
+                    return None, html.Span("Error generando PDF", className="ms-2 fw-bold", style={"color": "#FF0000"})
+            
+            except Exception as e:
+                print(f"Error al exportar PDF: {str(e)}")
+                return None, html.Span(f"Error: {str(e)}", className="ms-2 fw-bold", style={"color": "#FF0000"})
+                                    
     except Exception as e:
         print(f"Error al registrar callbacks de estadísticas: {str(e)}")
         import traceback

@@ -1,14 +1,14 @@
 /* Estilos globales */
 body {
-    background-color: #E6E6E6;
-    color: #001F3F;
-    font-family: sans-serif;
+    background-color: #E6E6E6 !important; 
+    color: #001F3F !important;
+    font-family: sans-serif !important;
 }
 
 /* Tarjeta de login */
 .card {
-    background-color: #FFFFFF;
-    border: none;
+    background-color: #FFFFFF;    
+    border: none !important;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
@@ -16,6 +16,7 @@ body {
 .btn-primary {
     background-color: #001F3F !important; /* Azul oscuro Atleti */
     border-color: #001F3F !important;
+    color: #FFFFFF !important;
 }
 
 .btn-primary:hover {
@@ -25,7 +26,7 @@ body {
 
 /* Encabezados */
 h1, h2, h3, h4, h5, h6 {
-    color: #00346B !important /* Azul Atleti para títulos */ /* #D81E05 rojo atleti */
+    color: #001F3F !important; /* Azul Atleti para títulos */
 }
 
 /* Contenedores */
@@ -37,3 +38,158 @@ h1, h2, h3, h4, h5, h6 {
 .card-secondary {
     background-color: #D3D3D3;
 }
+
+/* Todos los textos en azul por defecto, EXCEPTO en datatable */
+p:not(.dash-cell), 
+span:not(.dash-cell):not(.dash-header), 
+div:not(.dash-cell):not(.dash-spreadsheet):not([class*="dash-"]), 
+label, a, input, select, textarea {
+    color: #001F3F !important; 
+}
+
+/* Estilo para la navbar */
+.navbar {
+    background-color: #001F3F !important;
+}
+
+/* Texto blanco para la navbar */
+.navbar .navbar-brand, 
+.navbar .nav-link, 
+.navbar .navbar-text,
+.navbar .dropdown-toggle {
+    color: #D3D3D3 !important;
+}
+
+/* Hover para elementos de navbar */
+.navbar .nav-link:hover,
+.navbar .dropdown-toggle:hover {
+    color: #D3D3D3 !important;
+}
+
+/* Texto blanco para botones con fondo oscuro */
+.btn-primary, 
+.btn-secondary,
+.btn-dark,
+button[id*="exportar-pdf"] {
+    color: #D3D3D3 !important;
+}
+
+/* Estilo para elementos de selección de página */
+.page-tabs .nav-link,
+.page-tabs .nav-item.active .nav-link {
+    color: #FFFFFF !important;
+}
+
+/* Para asegurar que el texto en los dropdowns es visible */
+.dropdown-menu .dropdown-item {
+    color: #001F3F !important;
+}
+
+/* Para cualquier texto sobre fondo oscuro */
+.bg-dark, .bg-primary, [style*="background-color: #001F3F"] {
+    color: #FFFFFF !important;
+}
+
+/* Estilo para las etiquetas de los dropdowns */
+.Select-value-label {
+    color: #001F3F !important;
+}
+
+/* Para textos específicos */
+.text-muted {
+    color: #566573 !important;  /* Gris azulado */
+}
+
+/* Etiquetas específicas para gráficos */
+.graph-title, .axis-title, .legend-text {
+    color: #001F3F !important;
+}
+
+/* Excepción al estilo general para DataTable */
+.dash-spreadsheet-container .dash-spreadsheet-inner td.dash-cell {
+    color: #E8E8E8 !important; /* Color claro para todas las celdas */
+}
+
+/* Específico para la columna de Jornada */
+.dash-spreadsheet-container .dash-spreadsheet-inner td.dash-cell.column-0 {
+    color: white !important;
+    background-color: #0A1A2A !important;
+    font-weight: bold !important;
+}
+
+/* Asegurar que las celdas con colores condicionales respeten sus propios colores */
+.dash-spreadsheet-container td[style*="background-color"] {
+    color: white !important;
+}
+
+/* Asegurar que los encabezados de la DataTable tengan texto blanco (regla más específica) */
+.dash-spreadsheet-container .dash-spreadsheet-inner .dash-header .column-header-name,
+.dash-spreadsheet-container .dash-spreadsheet-inner th,
+.dash-spreadsheet-container .dash-spreadsheet-inner th div,
+.dash-spreadsheet-container .dash-spreadsheet-inner th span {
+    color: white !important;
+    font-weight: bold !important;
+}
+
+/* Reglas de máxima prioridad para la columna Jornada */
+.dash-spreadsheet td.dash-cell.column-0,
+.dash-spreadsheet-container .dash-spreadsheet-inner td[data-dash-column="Jornada"],
+.dash-spreadsheet-container .dash-spreadsheet-inner .column-0 {
+    color: white !important;
+    background-color: #0A1A2A !important;
+    font-weight: bold !important;
+    font-size: 14px !important;
+}
+
+/* Estilo adicional para datatable */
+.dash-table-container .dash-spreadsheet th {
+    color: white !important;
+    font-weight: bold !important;
+    background-color: #001F3F !important;
+}
+
+/* Regla general para celdas de datos (excepto jornadas) - usar el color azul del Atleti */
+.dash-spreadsheet-container .dash-spreadsheet-inner td.dash-cell:not(.column-0) {
+    color: #001F3F !important; /* Azul del Atleti */
+    font-weight: normal !important;
+}
+
+/* Mantener los encabezados de columnas en blanco */
+.dash-spreadsheet-container .dash-spreadsheet-inner .dash-header .column-header-name,
+.dash-spreadsheet-container .dash-spreadsheet-inner th,
+.dash-spreadsheet-container .dash-spreadsheet-inner th div,
+.dash-spreadsheet-container .dash-spreadsheet-inner th span {
+    color: white !important;
+    font-weight: bold !important;
+}
+
+/* Reglas de máxima prioridad para la columna Jornada - mantener en blanco */
+.dash-spreadsheet td.dash-cell.column-0,
+.dash-spreadsheet-container .dash-spreadsheet-inner td[data-dash-column="Jornada"],
+.dash-spreadsheet-container .dash-spreadsheet-inner .column-0 {
+    color: white !important;
+    background-color: #0A1A2A !important;
+    font-weight: bold !important;
+    font-size: 14px !important;
+}
+
+/* Asegurar que las celdas con colores condicionales (verde/rojo) respeten sus propios colores */
+.dash-spreadsheet-container td[style*="background-color: rgba(76, 175, 80"] {
+    color: white !important; /* Texto blanco para celdas con fondo verde */
+}
+
+.dash-spreadsheet-container td[style*="background-color: rgba(244, 67, 54"] {
+    color: white !important; /* Texto blanco para celdas con fondo rojo */
+}
+
+/* Reducir espaciado en las tarjetas para un diseño más compacto */
+.card-body {
+    padding: 0.75rem !important;
+}
+
+/* Ajustar tamaño de la imagen del jugador si existe */
+#info-jugador-container img {
+    max-height: 150px;
+    object-fit: contain;
+}
+

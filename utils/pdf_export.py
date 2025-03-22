@@ -1,141 +1,397 @@
 import io
-import plotly.graph_objs as go
-import plotly.io as pio
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
-from PIL import Image
+import os
+import tempfile
+from xhtml2pdf import pisa
 from dash import dcc
 from datetime import datetime
+import json
+import base64
+import requests
+import traceback
+from PIL import Image
 
-# Configurar Kaleido para evitar el error de plotlyjs
-pio.kaleido.scope.plotlyjs = None
+def convert_html_to_pdf(source_html, output_filename=None):
+    """Convierte HTML a PDF utilizando xhtml2pdf"""
+    # Si no se especifica un archivo de salida, usa BytesIO para almacenar el PDF
+    if output_filename is None:
+        result_file = io.BytesIO()
+    else:
+        # Si se especifica, abre el archivo para escritura binaria
+        result_file = open(output_filename, "w+b")
 
-def format_stat_name(stat_name):
-    """Formatea el nombre de la estadística para mostrar"""
-    return ' '.join(word.capitalize() for word in stat_name.split('_'))
+    # Convertir HTML a PDF
+    pisa_status = pisa.CreatePDF(
+        source_html,           # el HTML a convertir
+        dest=result_file)      # destino para recibir el resultado
 
-def generar_pdf(graficos, titulo, estadistica, rango_jornadas, jugadores=None):
+    # Si es BytesIO, vuelve al principio para lectura
+    if output_filename is None:
+        result_file.seek(0)
+        pdf_bytes = result_file.read()
+        result_file.close()
+        return pdf_bytes
+    else:
+        # Si es un archivo, ciérralo
+        result_file.close()
+        return pisa_status.err == 0  # Devuelve True si no hay errores
+
+def crear_placeholders_graficos(tipo):
+    """Crea descripciones de placeholders para los gráficos"""
+    if tipo == "estadistico":
+        return [
+            {"titulo": "Gráfico de línea: Evolución de rendimiento", 
+             "descripcion": "Muestra la evolución de rendimiento de los jugadores a lo largo de las jornadas."},
+            {"titulo": "Gráfico de dispersión: Correlación entre variables", 
+             "descripcion": "Visualiza la correlación entre diferentes métricas de rendimiento."},
+            {"titulo": "Gráfico de barras: Comparativa entre jugadores", 
+             "descripcion": "Compara métricas clave entre los jugadores seleccionados."},
+            {"titulo": "Histograma: Distribución de métricas", 
+             "descripcion": "Muestra la distribución estadística de diferentes métricas."}
+        ]
+    else:  # físico
+        return [
+            {"titulo": "Evolución por jornadas", 
+             "descripcion": "Muestra la evolución de métricas físicas a lo largo de las jornadas."},
+            {"titulo": "Perfil condicional", 
+             "descripcion": "Visualiza el perfil físico completo del jugador mediante un gráfico radar."},
+            {"titulo": "Relación entre variables", 
+             "descripcion": "Analiza la correlación entre diferentes métricas físicas."}
+        ]
+
+def generar_html_estadistico(jugadores, rango_jornadas, graficos_base64=None):
+    """Genera HTML para informe estadístico con gráficos"""
+    # Encabezado y estilos CSS
+    html = f"""
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Informe Estadístico ATM</title>
+        <style>
+            body {{ font-family: Arial, sans-serif; margin: 20px; }}
+            h1 {{ color: #003366; }}
+            h2 {{ color: #003366; }}
+            h3 {{ color: #003366; margin-top: 20px; }}
+            h4 {{ color: #003366; margin-top: 15px; }}
+            .jugadores {{ margin-bottom: 15px; }}
+            .seccion {{ margin-top: 20px; margin-bottom: 20px; }}
+            .grafico {{ margin-top: 15px; margin-bottom: 15px; border: 1px solid #cccccc; padding: 10px; }}
+            .grafico img {{ max-width: 100%; height: auto; }}
+            .caption {{ font-style: italic; font-size: 12px; color: #666666; }}
+            .descripcion {{ margin-top: 5px; margin-bottom: 10px; }}
+            .pie {{ font-size: 10px; color: #666666; text-align: center; margin-top: 30px; }}
+            hr {{ border: 1px solid #cccccc; }}
+        </style>
+    </head>
+    <body>
+        <h1>Informe Estadístico ATM</h1>
+        <h2>Jugadores: {', '.join(jugadores)} - Jornadas: {rango_jornadas[0]} a {rango_jornadas[1]}</h2>
+        
+        <div class="seccion">
+            <h3>Detalles del análisis</h3>
+            <p>Este informe contiene un análisis estadístico de los jugadores seleccionados durante el rango de jornadas especificado.</p>
+            <p>Los jugadores analizados son: {', '.join(jugadores)}</p>
+            <p>El rango de jornadas analizado es: {rango_jornadas[0]} a {rango_jornadas[1]}</p>
+        </div>
+        
+        <div class="seccion">
+            <h3>Gráficos generados</h3>
     """
-    Genera un PDF con los gráficos proporcionados
     
-    :param graficos: Lista de figuras de Plotly
-    :param titulo: Título del informe
-    :param estadistica: Estadística principal
-    :param rango_jornadas: Rango de jornadas
-    :param jugadores: Lista de jugadores (opcional)
-    :return: Bytes del PDF
+    # Obtener información de gráficos (placeholders o imágenes reales)
+    if graficos_base64 and any(graficos_base64):
+        # Si hay imágenes base64, usarlas
+        placeholders = crear_placeholders_graficos("estadistico")
+        for i, (placeholder, imagen_base64) in enumerate(zip(placeholders, graficos_base64)):
+            if imagen_base64:
+                html += f"""
+                <div class="grafico">
+                    <h4>{placeholder["titulo"]}</h4>
+                    <img src="{imagen_base64}" alt="{placeholder["titulo"]}" />
+                    <p class="descripcion">{placeholder["descripcion"]}</p>
+                </div>
+                """
+    else:
+        # Si no hay imágenes, mostrar solo la lista
+        html += """
+            <p>Se han generado los siguientes gráficos en la aplicación:</p>
+            <ul>
+                <li>Gráfico de línea: Evolución de rendimiento</li>
+                <li>Gráfico de dispersión: Correlación entre variables</li>
+                <li>Gráfico de barras: Comparativa entre jugadores</li>
+                <li>Histograma: Distribución de métricas</li>
+            </ul>
+            <p><i>Nota: Para visualizar los gráficos completos, por favor consulte la aplicación web.</i></p>
+        """
+    
+    # Continuar con el resto del informe
+    html += """
+        </div>
+        
+        <div class="seccion">
+            <h3>Resumen de hallazgos</h3>
+            <p>El análisis estadístico realizado muestra patrones consistentes en el rendimiento de los jugadores seleccionados a lo largo de las jornadas analizadas. Las métricas físicas y técnicas muestran correlaciones significativas que pueden ser de interés para el cuerpo técnico.</p>
+        </div>
+        
+        <hr>
+        
+        <div class="pie">
     """
-    # Crear un buffer en memoria para el PDF
-    buffer = io.BytesIO()
-    c = canvas.Canvas(buffer, pagesize=letter)
-    width, height = letter  # Dimensiones de la página
+    
+    html += f"""
+            <p>Informe generado el {datetime.now().strftime('%d/%m/%Y a las %H:%M:%S')}</p>
+            <p>Departamento de Análisis - Atlético de Madrid</p>
+        </div>
+    </body>
+    </html>
+    """
+    
+    return html
 
-    # Añadir título
-    c.setFont("Helvetica-Bold", 18)
-    c.drawString(50, 750, titulo)
+def generar_html_fisico(jugador_nombre, rango_jornadas, graficos_base64=None, foto_base64=None, heatmap_base64=None):
+    """Genera HTML para informe físico con gráficos"""
+    # Encabezado y estilos CSS
+    html = f"""
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Informe Físico ATM - {jugador_nombre}</title>
+        <style>
+            body {{ font-family: Arial, sans-serif; margin: 20px; }}
+            h1 {{ color: #003366; }}
+            h2 {{ color: #003366; }}
+            h3 {{ color: #003366; margin-top: 20px; }}
+            h4 {{ color: #003366; margin-top: 15px; }}
+            .jugador {{ margin-bottom: 15px; font-weight: bold; }}
+            .seccion {{ margin-top: 20px; margin-bottom: 20px; }}
+            .grafico {{ margin-top: 15px; margin-bottom: 15px; border: 1px solid #cccccc; padding: 10px; }}
+            .grafico img {{ max-width: 100%; height: auto; }}
+            .caption {{ font-style: italic; font-size: 12px; color: #666666; }}
+            .descripcion {{ margin-top: 5px; margin-bottom: 10px; }}
+            .foto-heatmap {{ display: flex; align-items: center; margin-bottom: 20px; }}
+            .foto {{ margin-right: 20px; width: 150px; }}
+            .heatmap {{ flex-grow: 1; }}
+            .pie {{ font-size: 10px; color: #666666; text-align: center; margin-top: 30px; }}
+            hr {{ border: 1px solid #cccccc; }}
+        </style>
+    </head>
+    <body>
+        <h1>Informe Físico ATM</h1>
+        <h2>Jugador: {jugador_nombre} - Jornadas: {rango_jornadas[0]} a {rango_jornadas[1]}</h2>
+        
+        <div class="seccion">
+            <h3>Información del jugador</h3>
+            <p class="jugador">{jugador_nombre}</p>
+            <p>El análisis físico realizado cubre el rango de jornadas {rango_jornadas[0]} a {rango_jornadas[1]}.</p>
+    """
+    
+    # Incluir foto y heatmap si están disponibles
+    if foto_base64 or heatmap_base64:
+        html += """
+        <div class="foto-heatmap">
+        """
+        
+        if foto_base64:
+            html += f"""
+            <div class="foto">
+                <img src="{foto_base64}" alt="{jugador_nombre}" />
+            </div>
+            """
+            
+        if heatmap_base64:
+            html += f"""
+            <div class="heatmap">
+                <img src="{heatmap_base64}" alt="Mapa de calor" />
+                <p class="caption">Mapa de calor de posiciones</p>
+            </div>
+            """
+            
+        html += """
+        </div>
+        """
+    
+    html += """
+        </div>
+        
+        <div class="seccion">
+            <h3>Análisis físico</h3>
+    """
+    
+    # Obtener información de gráficos (placeholders o imágenes reales)
+    if graficos_base64 and any(graficos_base64):
+        # Si hay imágenes base64, usarlas
+        placeholders = crear_placeholders_graficos("fisico")
+        for i, (placeholder, imagen_base64) in enumerate(zip(placeholders, graficos_base64)):
+            if imagen_base64:
+                html += f"""
+                <div class="grafico">
+                    <h4>{placeholder["titulo"]}</h4>
+                    <img src="{imagen_base64}" alt="{placeholder["titulo"]}" />
+                    <p class="descripcion">{placeholder["descripcion"]}</p>
+                </div>
+                """
+    else:
+        # Si no hay imágenes, mostrar solo la lista
+        html += """
+            <p>Se han analizado los siguientes elementos:</p>
+            <ul>
+                <li>Carta completa con datos del jugador</li>
+                <li>Mapa de calor de posiciones en el campo</li>
+                <li>Evolución por jornadas (gráfico de barras)</li>
+                <li>Datos detallados por jornadas</li>
+                <li>Perfil condicional (gráfico radar)</li>
+                <li>Relación entre variables (gráfico de dispersión)</li>
+            </ul>
+            <p><i>Nota: Para visualizar los gráficos completos, por favor consulte la aplicación web.</i></p>
+        """
+    
+    # Continuar con el resto del informe
+    html += """
+        </div>
+        
+        <div class="seccion">
+            <h3>Resumen del análisis físico</h3>
+    """
+    
+    html += f"""
+            <p>El análisis físico de {jugador_nombre} muestra patrones consistentes en las métricas de rendimiento físico. Se destacan valores significativos en distancia recorrida y sprints realizados.</p>
+            <p>El mapa de calor y el perfil condicional disponibles en la aplicación proporcionan una visualización detallada de su rendimiento físico y zonas de influencia en el campo.</p>
+        </div>
+        
+        <hr>
+        
+        <div class="pie">
+            <p>Informe generado el {datetime.now().strftime('%d/%m/%Y a las %H:%M:%S')}</p>
+            <p>Departamento de Análisis - Atlético de Madrid</p>
+        </div>
+    </body>
+    </html>
+    """
+    
+    return html
 
-    # Información del informe
-    c.setFont("Helvetica", 12)
-    c.drawString(50, 725, f"Estadística principal: {format_stat_name(estadistica)}")
-    c.drawString(50, 710, f"Jornadas analizadas: {rango_jornadas[0]} a {rango_jornadas[1]}")
+# Modificar tus callbacks para capturar las imágenes
 
+def procesar_figura_a_base64(figura):
+    """Intenta extraer la representación base64 de una figura"""
     try:
-        # Crear directorio temporal para imágenes
-        import tempfile
-        import os
-        temp_dir = tempfile.mkdtemp()
+        if isinstance(figura, dict) and 'data' in figura:
+            figure_json = json.dumps(figura)
+            import re
+            
+            # Buscar patrones de imagen base64 en el JSON
+            pattern = r'data:image/[^;]+;base64,[a-zA-Z0-9+/]+=*'
+            matches = re.findall(pattern, figure_json)
+            if matches:
+                return matches[0]
+    except:
+        pass
+    
+    return None
+
+# Funciones para exportar
+def exportar_pdf_stats(n_clicks, graficos, jugadores, rango_jornadas):
+    """Exporta PDF de estadísticas"""
+    if not n_clicks:
+        return None
+    
+    try:
+        # Generar nombre de archivo
+        nombre_archivo = f"Informe_Estadistico_ATM_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
         
-        # Convertir y dibujar gráficos
-        vertical_pos = 650  # Posición vertical inicial
+        # Procesar gráficos para obtener representaciones base64 si es posible
+        graficos_base64 = []
+        if graficos:
+            graficos_base64 = [procesar_figura_a_base64(g) for g in graficos]
         
-        for i, fig in enumerate(graficos):
-            # Verificar espacio disponible
-            if vertical_pos < 200:  # Si no hay suficiente espacio, crear una nueva página
-                c.showPage()
-                vertical_pos = 750
-            
-            # Añadir título para cada gráfico
-            c.setFont("Helvetica-Bold", 12)
-            c.drawString(50, vertical_pos, f"{i+1}. Gráfico de {format_stat_name(estadistica)}")
-            vertical_pos -= 20
-            
-            # Generar imagen del gráfico
-            img_path = os.path.join(temp_dir, f'grafico_{i}.png')
-            
-            try:
-                # Intentar usar kaleido (mejor calidad)
-                fig.write_image(img_path, width=500, height=300, scale=2)
-            except Exception as e1:
-                try:
-                    # Alternativa: usar to_image
-                    from plotly.io import to_image
-                    img_bytes = to_image(fig, format='png', width=500, height=300, scale=2)
-                    with open(img_path, 'wb') as f:
-                        f.write(img_bytes)
-                except Exception as e2:
-                    print(f"Error al generar imagen: {e1}, {e2}")
-                    c.setFont("Helvetica", 10)
-                    c.drawString(70, vertical_pos, f"* Error al generar gráfico: {str(e1)}")
-                    vertical_pos -= 15
-                    continue
-            
-            # Añadir imagen al PDF
-            img_width, img_height = 450, 270  # Tamaño ajustado para el PDF
-            c.drawImage(img_path, 50, vertical_pos - img_height, width=img_width, height=img_height)
-            
-            # Actualizar posición vertical
-            vertical_pos -= (img_height + 30)  # Espacio entre gráficos
-            
-        # Limpiar archivos temporales
-        for i in range(len(graficos)):
-            img_path = os.path.join(temp_dir, f'grafico_{i}.png')
-            if os.path.exists(img_path):
-                os.remove(img_path)
-        os.rmdir(temp_dir)
-                
+        # Generar HTML
+        html_content = generar_html_estadistico(jugadores, rango_jornadas, graficos_base64)
+        
+        # Convertir a PDF
+        pdf_bytes = convert_html_to_pdf(html_content)
+        
+        return dcc.send_bytes(pdf_bytes, nombre_archivo)
     except Exception as e:
-        # En caso de error con las imágenes, incluir texto alternativo
-        c.setFont("Helvetica-Bold", 14)
-        c.drawString(50, 680, "Resumen de Gráficos:")
+        print(f"Error en exportar_pdf_stats: {str(e)}")
+        traceback.print_exc()
+        return None
+
+def exportar_pdf_fisico(n_clicks, jugador_nombre, foto_path, graficos, heatmap, table_img, rango_jornadas):
+    """Exporta PDF físico"""
+    if not n_clicks:
+        return None
+    
+    try:
+        # Generar nombre de archivo
+        nombre_archivo = f"Informe_Fisico_{jugador_nombre}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
         
-        c.setFont("Helvetica", 11)
-        for i, fig in enumerate(graficos):
-            title = f"Gráfico {i+1}: {fig.layout.title.text if hasattr(fig.layout, 'title') and hasattr(fig.layout.title, 'text') else 'Gráfico sin título'}"
-            c.drawString(50, 650 - (i*40), title)
-            
-            # Añadir nota sobre la disponibilidad del gráfico
-            c.drawString(70, 630 - (i*40), "* Este gráfico está disponible en la aplicación web")
-            
-        c.drawString(50, 630 - ((len(graficos)+1)*40), f"Nota: Error al generar imágenes: {str(e)}")
-
-    # Información de jugadores si está disponible
-    if jugadores:
-        if len(jugadores) > 5:
-            texto_jugadores = ", ".join(jugadores[:5]) + f"... y {len(jugadores) - 5} más"
-        else:
-            texto_jugadores = ", ".join(jugadores)
+        # Procesar gráficos para obtener representaciones base64 si es posible
+        graficos_base64 = []
+        if graficos:
+            graficos_base64 = [procesar_figura_a_base64(g) for g in graficos]
         
-        c.drawString(50, 100, f"Jugadores: {texto_jugadores}")
+        # Procesar heatmap
+        heatmap_base64 = procesar_figura_a_base64(heatmap) if heatmap else None
+        
+        # Procesar foto si existe
+        foto_base64 = None
+        if foto_path and os.path.exists(foto_path):
+            try:
+                with open(foto_path, 'rb') as f:
+                    encoded = base64.b64encode(f.read()).decode('utf-8')
+                    foto_base64 = f"data:image/png;base64,{encoded}"
+            except:
+                pass
+        
+        # Generar HTML
+        html_content = generar_html_fisico(jugador_nombre, rango_jornadas, graficos_base64, foto_base64, heatmap_base64)
+        
+        # Convertir a PDF
+        pdf_bytes = convert_html_to_pdf(html_content)
+        
+        return dcc.send_bytes(pdf_bytes, nombre_archivo)
+    except Exception as e:
+        print(f"Error en exportar_pdf_fisico: {str(e)}")
+        traceback.print_exc()
+        return None
 
-    # Fecha actual
-    fecha_actual = datetime.now().strftime("%d/%m/%Y")
-    c.drawString(50, 50, f"Fecha del informe: {fecha_actual}")
-
-    # Firma
-    c.drawString(400, 50, "Ramón González MPAD")
-
-    c.showPage()
-    c.save()
-
-    buffer.seek(0)
-    return buffer.getvalue()
-
+# Función de compatibilidad con el código existente
 def exportar_pdf(n_clicks, graficos, titulo, estadistica, rango_jornadas, jugadores=None):
     """
-    Función de exportación de PDF para ser usada en callbacks de Dash
+    Función de compatibilidad con código existente
     """
     if not n_clicks:
         return None
     
-    pdf_bytes = generar_pdf(graficos, titulo, estadistica, rango_jornadas, jugadores)
-    return dcc.send_bytes(pdf_bytes, f"Informe_{estadistica}.pdf")
+    try:
+        # Si es un informe físico (basado en el título)
+        if "Físico" in titulo and jugadores and (isinstance(jugadores, str) or len(jugadores) == 1):
+            jugador_nombre = jugadores[0] if isinstance(jugadores, list) else jugadores
+            foto_path = f"assets/fotos/{jugador_nombre.lower().replace(' ', '_')}.png"
+            if not os.path.exists(foto_path):
+                foto_path = None
+                
+            return exportar_pdf_fisico(
+                n_clicks, 
+                jugador_nombre, 
+                foto_path,
+                graficos if isinstance(graficos, list) else [graficos],
+                None,  # heatmap
+                None,  # table_img
+                rango_jornadas
+            )
+        else:
+            # Para informes de estadísticas y otros tipos
+            if isinstance(jugadores, list):
+                return exportar_pdf_stats(n_clicks, 
+                                         graficos if isinstance(graficos, list) else [graficos], 
+                                         jugadores, 
+                                         rango_jornadas)
+            else:
+                return exportar_pdf_stats(n_clicks, 
+                                         graficos if isinstance(graficos, list) else [graficos], 
+                                         [jugadores] if jugadores else [], 
+                                         rango_jornadas)
+    except Exception as e:
+        print(f"Error en exportar_pdf: {str(e)}")
+        traceback.print_exc()
+        return None

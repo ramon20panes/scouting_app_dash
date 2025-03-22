@@ -70,7 +70,7 @@ Aplicación web de visualización de estadísticas de jugadores del Atlético de
 
 ## Instalación
 
-1. Clonar el repositorio: git clone https://github.com/ramon20panes/scouting_app_dash.git
+1.- Clonar el repositorio: git clone https://github.com/ramon20panes/scouting_app_dash.git
 
 2.- Crear entorno virtual: python -m venv venv
 

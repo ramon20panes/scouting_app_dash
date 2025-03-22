@@ -15,6 +15,57 @@ class User(UserMixin):
         self.role = user_data.get('role', '')
         self.permissions = ROLES.get(self.role, {}).get('permissions', [])
         self.player_id = user_data.get('player_id', None)
+    
+    def can_view_player_data(self, player_name=None, player_id=None):
+        """
+        Determina si el usuario puede ver los datos de un jugador específico
+        
+        Args:
+            player_name: Nombre del jugador a verificar
+            player_id: ID del jugador a verificar
+        
+        Returns:
+            bool: True si tiene permiso, False en caso contrario
+        """
+        # Administradores siempre pueden ver todos los datos
+        if self.role == 'admin' or 'view_all' in self.permissions:
+            return True
+            
+        # Entrenadores pueden ver datos de todo el equipo
+        if self.role == 'coach' or 'view_team' in self.permissions:
+            return True
+            
+        # Para jugadores verificamos si son sus propios datos
+        if self.role == 'player':
+            # Si se proporciona un ID de jugador, verificar coincidencia
+            if player_id is not None:
+                return player_id == self.player_id
+                
+            # Si se proporciona un nombre, verificar si es el nombre del jugador
+            if player_name is not None:
+                # Normalizar nombres para comparación (quitar tildes, convertir a minúsculas)
+                import unicodedata
+                def normalize_name(name):
+                    if not name:
+                        return ""
+                    return ' '.join(unicodedata.normalize('NFKD', str(name).lower())
+                                    .encode('ASCII', 'ignore')
+                                    .decode('ASCII')
+                                    .split())
+                
+                user_name_normalized = normalize_name(self.name)
+                player_name_normalized = normalize_name(player_name)
+                
+                # Verificar si el nombre normalizado del jugador contiene el nombre normalizado del usuario
+                # o viceversa
+                return (user_name_normalized in player_name_normalized or 
+                        player_name_normalized in user_name_normalized)
+            
+            # Si no hay suficiente información para verificar, denegar por defecto
+            return False
+            
+        # Para otros roles no especificados, denegar por defecto
+        return False
 
 def load_user(user_id):
     """
@@ -75,3 +126,16 @@ def protect_route(required_permissions=None):
             return func(*args, **kwargs)
         return wrapper
     return decorator
+
+def get_player_id_by_name(player_name):
+    """
+    Busca el ID de un jugador por su nombre en la base de datos
+    
+    Args:
+        player_name: Nombre del jugador a buscar
+    
+    Returns:
+        int: ID del jugador o None si no se encuentra
+    """
+    from utils.db import get_player_id_from_name
+    return get_player_id_from_name(player_name)

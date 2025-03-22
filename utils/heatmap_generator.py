@@ -8,6 +8,7 @@ matplotlib.use('Agg')  # Para usar matplotlib sin GUI
 import io
 import base64
 import time
+import random
 
 def obtener_datos_heatmap(id_sofascore):
     """
@@ -32,7 +33,6 @@ def obtener_datos_heatmap(id_sofascore):
         
         # Verificar si la solicitud fue exitosa
         if response.status_code == 200:
-            print(f"Datos de heatmap obtenidos correctamente para ID: {id_sofascore}")
             return response.json()
         else:
             print(f"Error al obtener heatmap, código: {response.status_code}")
@@ -109,7 +109,6 @@ def generar_heatmap_simulado(id_sofascore):
     ax.plot([field_length, field_length - 16.5], [field_width/2 + 20.15, field_width/2 + 20.15], color=line_color, linewidth=line_width)
     
     # Generar datos aleatorios basados en el ID del jugador para que sea consistente
-    import random
     random.seed(int(id_sofascore) % 1000)
     
     # Simular posiciones según la posición típica (depende del rango del ID)
@@ -156,20 +155,13 @@ def generar_heatmap_simulado(id_sofascore):
     
     # Colorbar
     cbar = plt.colorbar(hb, ax=ax)
-    cbar.set_label('Densidad posición', fontsize=10, color="darkblue", weight="bold")
+    cbar.set_label('Densidad', fontsize=8, color="darkblue", weight="bold")
     
     # Configuración de ejes
     ax.set_aspect('equal')
     ax.set_xlim(-5, field_length + 5)
     ax.set_ylim(-5, field_width + 5)
     ax.axis('off')
-    
-    # Título
-    plt.title('Mapa de calor de posicionamiento (simulado)', fontsize=12, fontweight='bold')
-    
-    # Dirección de ataque
-    plt.annotate('→ Dirección de ataque →', xy=(field_length/2, field_width + 3), 
-                 xytext=(field_length/2, field_width + 3), ha='center', fontsize=10)
     
     # Guardar en buffer
     buf = io.BytesIO()
@@ -302,21 +294,14 @@ def generar_heatmap(id_sofascore):
     
     # Colorbar
     cbar = plt.colorbar(hb, ax=ax)
-    cbar.set_label('Densidad posición', fontsize=10, color="darkblue", weight="bold")
+    cbar.set_label('Densidad', fontsize=8, color="darkblue", weight="bold")
     
     # Configuración de ejes
     ax.set_aspect('equal')
     ax.set_xlim(-5, field_length + 5)
     ax.set_ylim(-5, field_width + 5)
     ax.axis('off')
-    
-    # Título
-    plt.title('Mapa de calor de posicionamiento', fontsize=12, fontweight='bold')
-    
-    # Dirección de ataque
-    plt.annotate('→ Dirección de ataque →', xy=(field_length/2, field_width + 3), 
-                 xytext=(field_length/2, field_width + 3), ha='center', fontsize=10)
-    
+       
     # Guardar en buffer
     buf = io.BytesIO()
     plt.savefig(buf, format='png', dpi=100, bbox_inches='tight')
