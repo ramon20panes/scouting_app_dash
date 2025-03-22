@@ -3,6 +3,7 @@ from dash import html, dcc
 import pandas as pd
 from utils.auth import protect_route
 from config import CONFIG
+from utils.pdf_export import exportar_pdf, crear_boton_exportar_pdf
 
 @protect_route(['view_team', 'view_all'])
 def player_stats_layout():
@@ -205,20 +206,16 @@ def player_stats_layout():
                 ]),
                     
                 # Fila final - Botón PDF y firma
+                # Botón para exportar PDF
                 dbc.Row([
-                    # Botón de exportar PDF
                     dbc.Col([
                         html.Div([
                             dcc.Download(id="descargar-pdf-stats"),
-                            dbc.Button(
-                                "Generar PDF",
-                                id="exportar-pdf-btn-stats",
-                                color="primary",
-                                className="me-2"
-                            ),
-                            html.Span(id="pdf-status-stats", className="ms-2")                    
+                            crear_boton_exportar_pdf(),  # Aquí usamos la función
+                            html.Span(id="pdf-status-stats", className="ms-2")
                         ], className="d-flex align-items-center")
-                    ], width=6),
+                    ], width=12)
+                ]),
             
                     # Firma personal
                     dbc.Col([
@@ -228,7 +225,7 @@ def player_stats_layout():
                     ], width=6)
                 ], className="mt-4")
             ])
-        ])
+    
     except Exception as e:
         return html.Div([
             html.H1("Error al cargar los datos", className="text-center text-danger mb-4"),

@@ -1,145 +1,162 @@
 import io
 import os
-import tempfile
 from xhtml2pdf import pisa
-from dash import dcc
+from dash import dcc, html
 from datetime import datetime
-import json
 import base64
-import requests
-import traceback
-from PIL import Image
+import dash_bootstrap_components as dbc
 
-def convert_html_to_pdf(source_html, output_filename=None):
+def convert_html_to_pdf(source_html):
     """Convierte HTML a PDF utilizando xhtml2pdf"""
-    # Si no se especifica un archivo de salida, usa BytesIO para almacenar el PDF
-    if output_filename is None:
-        result_file = io.BytesIO()
-    else:
-        # Si se especifica, abre el archivo para escritura binaria
-        result_file = open(output_filename, "w+b")
-
+    buffer = io.BytesIO()
+    
     # Convertir HTML a PDF
     pisa_status = pisa.CreatePDF(
         source_html,           # el HTML a convertir
-        dest=result_file)      # destino para recibir el resultado
+        dest=buffer)           # destino para recibir el resultado
 
-    # Si es BytesIO, vuelve al principio para lectura
-    if output_filename is None:
-        result_file.seek(0)
-        pdf_bytes = result_file.read()
-        result_file.close()
-        return pdf_bytes
-    else:
-        # Si es un archivo, ciérralo
-        result_file.close()
-        return pisa_status.err == 0  # Devuelve True si no hay errores
+    # Preparar el buffer para lectura
+    buffer.seek(0)
+    pdf_bytes = buffer.getvalue()
+    buffer.close()
+    
+    return pdf_bytes
 
-def crear_placeholders_graficos(tipo):
-    """Crea descripciones de placeholders para los gráficos"""
-    if tipo == "estadistico":
-        return [
-            {"titulo": "Gráfico de línea: Evolución de rendimiento", 
-             "descripcion": "Muestra la evolución de rendimiento de los jugadores a lo largo de las jornadas."},
-            {"titulo": "Gráfico de dispersión: Correlación entre variables", 
-             "descripcion": "Visualiza la correlación entre diferentes métricas de rendimiento."},
-            {"titulo": "Gráfico de barras: Comparativa entre jugadores", 
-             "descripcion": "Compara métricas clave entre los jugadores seleccionados."},
-            {"titulo": "Histograma: Distribución de métricas", 
-             "descripcion": "Muestra la distribución estadística de diferentes métricas."}
-        ]
-    else:  # físico
-        return [
-            {"titulo": "Evolución por jornadas", 
-             "descripcion": "Muestra la evolución de métricas físicas a lo largo de las jornadas."},
-            {"titulo": "Perfil condicional", 
-             "descripcion": "Visualiza el perfil físico completo del jugador mediante un gráfico radar."},
-            {"titulo": "Relación entre variables", 
-             "descripcion": "Analiza la correlación entre diferentes métricas físicas."}
-        ]
-
-def generar_html_estadistico(jugadores, rango_jornadas, graficos_base64=None):
-    """Genera HTML para informe estadístico con gráficos"""
-    # Encabezado y estilos CSS
+def generar_template_estadistico(jugadores, rango_jornadas):
+    """Genera un template HTML para el informe estadístico"""
+    fecha_generacion = datetime.now().strftime('%d/%m/%Y a las %H:%M:%S')
+    
+    # Cargar escudo - PRUEBA AMBAS RUTAS
+    escudo_base64 = ""
+    posibles_rutas = [
+        "assets/escudosatm.png",
+        "assets/escudos/atm.png",
+        "assets/img/atm.png",
+        "assets/logos/atm.png"
+    ]
+    
+    for ruta in posibles_rutas:
+        try:
+            if os.path.exists(ruta):
+                with open(ruta, "rb") as img_file:
+                    escudo_bytes = img_file.read()
+                    escudo_base64 = base64.b64encode(escudo_bytes).decode('utf-8')
+                print(f"Escudo encontrado en: {ruta}")
+                break
+        except Exception as e:
+            print(f"Error cargando escudo desde {ruta}: {str(e)}")
+    
+    # Crear HTML profesional con colores del Atleti
     html = f"""
+    <!DOCTYPE html>
     <html>
     <head>
         <meta charset="UTF-8">
-        <title>Informe Estadístico ATM</title>
+        <title>Informe Estadístico Atleti</title>
         <style>
-            body {{ font-family: Arial, sans-serif; margin: 20px; }}
-            h1 {{ color: #003366; }}
-            h2 {{ color: #003366; }}
-            h3 {{ color: #003366; margin-top: 20px; }}
-            h4 {{ color: #003366; margin-top: 15px; }}
-            .jugadores {{ margin-bottom: 15px; }}
-            .seccion {{ margin-top: 20px; margin-bottom: 20px; }}
-            .grafico {{ margin-top: 15px; margin-bottom: 15px; border: 1px solid #cccccc; padding: 10px; }}
-            .grafico img {{ max-width: 100%; height: auto; }}
-            .caption {{ font-style: italic; font-size: 12px; color: #666666; }}
-            .descripcion {{ margin-top: 5px; margin-bottom: 10px; }}
-            .pie {{ font-size: 10px; color: #666666; text-align: center; margin-top: 30px; }}
-            hr {{ border: 1px solid #cccccc; }}
+            body {{ 
+                font-family: Arial, sans-serif; 
+                margin: 20px; 
+                color: #333333;
+            }}
+            h1 {{ 
+                color: #003366; 
+                font-size: 24pt;
+                margin-top: 10px;
+            }}
+            h2 {{ 
+                color: #003366; 
+                font-size: 16pt;
+                border-bottom: 2px solid #003366;
+                padding-bottom: 5px;
+            }}
+            h3 {{ 
+                color: #c70101; 
+                font-size: 14pt;
+            }}
+            .header {{ 
+                display: flex; 
+                align-items: center; 
+                margin-bottom: 20px;
+            }}
+            .logo {{ 
+                margin-right: 20px; 
+            }}
+            .info {{ 
+                background-color: #f0f5fa; 
+                padding: 15px; 
+                margin: 15px 0; 
+                border-left: 5px solid #003366;
+            }}
+            .section {{ 
+                margin: 20px 0; 
+            }}
+            .metric {{
+                margin-bottom: 15px;
+                padding-left: 10px;
+            }}
+            .footer {{ 
+                font-size: 10px; 
+                text-align: center; 
+                margin-top: 30px;
+                border-top: 1px solid #cccccc;
+                padding-top: 10px;
+                color: #666666;
+            }}
         </style>
     </head>
     <body>
-        <h1>Informe Estadístico ATM</h1>
-        <h2>Jugadores: {', '.join(jugadores)} - Jornadas: {rango_jornadas[0]} a {rango_jornadas[1]}</h2>
-        
-        <div class="seccion">
-            <h3>Detalles del análisis</h3>
-            <p>Este informe contiene un análisis estadístico de los jugadores seleccionados durante el rango de jornadas especificado.</p>
-            <p>Los jugadores analizados son: {', '.join(jugadores)}</p>
-            <p>El rango de jornadas analizado es: {rango_jornadas[0]} a {rango_jornadas[1]}</p>
-        </div>
-        
-        <div class="seccion">
-            <h3>Gráficos generados</h3>
+        <div class="header">
     """
     
-    # Obtener información de gráficos (placeholders o imágenes reales)
-    if graficos_base64 and any(graficos_base64):
-        # Si hay imágenes base64, usarlas
-        placeholders = crear_placeholders_graficos("estadistico")
-        for i, (placeholder, imagen_base64) in enumerate(zip(placeholders, graficos_base64)):
-            if imagen_base64:
-                html += f"""
-                <div class="grafico">
-                    <h4>{placeholder["titulo"]}</h4>
-                    <img src="{imagen_base64}" alt="{placeholder["titulo"]}" />
-                    <p class="descripcion">{placeholder["descripcion"]}</p>
-                </div>
-                """
-    else:
-        # Si no hay imágenes, mostrar solo la lista
-        html += """
-            <p>Se han generado los siguientes gráficos en la aplicación:</p>
-            <ul>
-                <li>Gráfico de línea: Evolución de rendimiento</li>
-                <li>Gráfico de dispersión: Correlación entre variables</li>
-                <li>Gráfico de barras: Comparativa entre jugadores</li>
-                <li>Histograma: Distribución de métricas</li>
-            </ul>
-            <p><i>Nota: Para visualizar los gráficos completos, por favor consulte la aplicación web.</i></p>
-        """
-    
-    # Continuar con el resto del informe
-    html += """
-        </div>
-        
-        <div class="seccion">
-            <h3>Resumen de hallazgos</h3>
-            <p>El análisis estadístico realizado muestra patrones consistentes en el rendimiento de los jugadores seleccionados a lo largo de las jornadas analizadas. Las métricas físicas y técnicas muestran correlaciones significativas que pueden ser de interés para el cuerpo técnico.</p>
-        </div>
-        
-        <hr>
-        
-        <div class="pie">
-    """
+    # Agregar logo si está disponible
+    if escudo_base64:
+        html += f'<div class="logo"><img src="data:image/png;base64,{escudo_base64}" width="80" height="80" alt="Atleti Logo"></div>'
     
     html += f"""
-            <p>Informe generado el {datetime.now().strftime('%d/%m/%Y a las %H:%M:%S')}</p>
-            <p>Departamento de Análisis - Atlético de Madrid</p>
+            <h1>INFORME ESTADÍSTICO ATLETI</h1>
+        </div>
+        
+        <div class="info">
+            <h2>Información del Análisis</h2>
+            <p><strong>Jugadores analizados:</strong> {', '.join(jugadores)}</p>
+            <p><strong>Jornadas analizadas:</strong> {rango_jornadas[0]} a {rango_jornadas[1]}</p>
+            <p><strong>Fecha de generación:</strong> {fecha_generacion}</p>
+        </div>
+        
+        <div class="section">
+            <h2>Análisis de Rendimiento</h2>
+            
+            <div class="metric">
+                <h3>Evolución de Rendimiento</h3>
+                <p>Muestra la evolución del rendimiento de cada jugador a lo largo de las jornadas seleccionadas.</p>
+            </div>
+            
+            <div class="metric">
+                <h3>Correlación entre Variables</h3>
+                <p>Analiza la relación entre diferentes métricas de rendimiento para identificar patrones significativos.</p>
+            </div>
+            
+            <div class="metric">
+                <h3>Comparativa entre Jugadores</h3>
+                <p>Facilita la comparación directa entre los jugadores seleccionados en términos de métricas clave.</p>
+            </div>
+            
+            <div class="metric">
+                <h3>Distribución Estadística</h3>
+                <p>Muestra la distribución de frecuencias de las métricas analizadas para evaluar consistencia.</p>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>Conclusiones</h2>
+            <p>El análisis estadístico realizado muestra patrones consistentes en el rendimiento de los jugadores 
+            seleccionados a lo largo de las jornadas analizadas.</p>
+            <p>Las métricas físicas y técnicas muestran correlaciones significativas que pueden ser de interés para el cuerpo técnico.</p>
+        </div>
+        
+        <div class="footer">
+            <p>Documento confidencial - Atlético de Madrid | Departamento de Análisis</p>
         </div>
     </body>
     </html>
@@ -147,121 +164,153 @@ def generar_html_estadistico(jugadores, rango_jornadas, graficos_base64=None):
     
     return html
 
-def generar_html_fisico(jugador_nombre, rango_jornadas, graficos_base64=None, foto_base64=None, heatmap_base64=None):
-    """Genera HTML para informe físico con gráficos"""
-    # Encabezado y estilos CSS
+def generar_template_fisico(jugador_nombre, rango_jornadas):
+    """Genera un template HTML para el informe físico"""
+    fecha_generacion = datetime.now().strftime('%d/%m/%Y a las %H:%M:%S')
+    
+    # Cargar escudo - PRUEBA AMBAS RUTAS
+    escudo_base64 = ""
+    posibles_rutas = [
+        "assets/escudosatm.png",
+        "assets/escudos/atm.png",
+        "assets/img/atm.png",
+        "assets/logos/atm.png"
+    ]
+    
+    for ruta in posibles_rutas:
+        try:
+            if os.path.exists(ruta):
+                with open(ruta, "rb") as img_file:
+                    escudo_bytes = img_file.read()
+                    escudo_base64 = base64.b64encode(escudo_bytes).decode('utf-8')
+                print(f"Escudo encontrado en: {ruta}")
+                break
+        except Exception as e:
+            print(f"Error cargando escudo desde {ruta}: {str(e)}")
+    
+    # Crear HTML profesional con colores del Atleti
     html = f"""
+    <!DOCTYPE html>
     <html>
     <head>
         <meta charset="UTF-8">
-        <title>Informe Físico ATM - {jugador_nombre}</title>
+        <title>Informe Físico Atleti</title>
         <style>
-            body {{ font-family: Arial, sans-serif; margin: 20px; }}
-            h1 {{ color: #003366; }}
-            h2 {{ color: #003366; }}
-            h3 {{ color: #003366; margin-top: 20px; }}
-            h4 {{ color: #003366; margin-top: 15px; }}
-            .jugador {{ margin-bottom: 15px; font-weight: bold; }}
-            .seccion {{ margin-top: 20px; margin-bottom: 20px; }}
-            .grafico {{ margin-top: 15px; margin-bottom: 15px; border: 1px solid #cccccc; padding: 10px; }}
-            .grafico img {{ max-width: 100%; height: auto; }}
-            .caption {{ font-style: italic; font-size: 12px; color: #666666; }}
-            .descripcion {{ margin-top: 5px; margin-bottom: 10px; }}
-            .foto-heatmap {{ display: flex; align-items: center; margin-bottom: 20px; }}
-            .foto {{ margin-right: 20px; width: 150px; }}
-            .heatmap {{ flex-grow: 1; }}
-            .pie {{ font-size: 10px; color: #666666; text-align: center; margin-top: 30px; }}
-            hr {{ border: 1px solid #cccccc; }}
+            body {{ 
+                font-family: Arial, sans-serif; 
+                margin: 20px; 
+                color: #333333;
+            }}
+            h1 {{ 
+                color: #003366; 
+                font-size: 24pt;
+                margin-top: 10px;
+            }}
+            h2 {{ 
+                color: #003366; 
+                font-size: 16pt;
+                border-bottom: 2px solid #003366;
+                padding-bottom: 5px;
+            }}
+            h3 {{ 
+                color: #c70101; 
+                font-size: 14pt;
+            }}
+            .header {{ 
+                display: flex; 
+                align-items: center; 
+                margin-bottom: 20px;
+            }}
+            .logo {{ 
+                margin-right: 20px; 
+            }}
+            .info {{ 
+                background-color: #f0f5fa; 
+                padding: 15px; 
+                margin: 15px 0; 
+                border-left: 5px solid #003366;
+            }}
+            .section {{ 
+                margin: 20px 0; 
+            }}
+            .metric {{
+                margin-bottom: 15px;
+                padding-left: 10px;
+            }}
+            .footer {{ 
+                font-size: 10px; 
+                text-align: center; 
+                margin-top: 30px;
+                border-top: 1px solid #cccccc;
+                padding-top: 10px;
+                color: #666666;
+            }}
+            .jugador-nombre {{
+                font-size: 18pt;
+                font-weight: bold;
+                color: #003366;
+                margin: 10px 0;
+            }}
         </style>
     </head>
     <body>
-        <h1>Informe Físico ATM</h1>
-        <h2>Jugador: {jugador_nombre} - Jornadas: {rango_jornadas[0]} a {rango_jornadas[1]}</h2>
-        
-        <div class="seccion">
-            <h3>Información del jugador</h3>
-            <p class="jugador">{jugador_nombre}</p>
-            <p>El análisis físico realizado cubre el rango de jornadas {rango_jornadas[0]} a {rango_jornadas[1]}.</p>
+        <div class="header">
     """
     
-    # Incluir foto y heatmap si están disponibles
-    if foto_base64 or heatmap_base64:
-        html += """
-        <div class="foto-heatmap">
-        """
-        
-        if foto_base64:
-            html += f"""
-            <div class="foto">
-                <img src="{foto_base64}" alt="{jugador_nombre}" />
-            </div>
-            """
-            
-        if heatmap_base64:
-            html += f"""
-            <div class="heatmap">
-                <img src="{heatmap_base64}" alt="Mapa de calor" />
-                <p class="caption">Mapa de calor de posiciones</p>
-            </div>
-            """
-            
-        html += """
-        </div>
-        """
-    
-    html += """
-        </div>
-        
-        <div class="seccion">
-            <h3>Análisis físico</h3>
-    """
-    
-    # Obtener información de gráficos (placeholders o imágenes reales)
-    if graficos_base64 and any(graficos_base64):
-        # Si hay imágenes base64, usarlas
-        placeholders = crear_placeholders_graficos("fisico")
-        for i, (placeholder, imagen_base64) in enumerate(zip(placeholders, graficos_base64)):
-            if imagen_base64:
-                html += f"""
-                <div class="grafico">
-                    <h4>{placeholder["titulo"]}</h4>
-                    <img src="{imagen_base64}" alt="{placeholder["titulo"]}" />
-                    <p class="descripcion">{placeholder["descripcion"]}</p>
-                </div>
-                """
-    else:
-        # Si no hay imágenes, mostrar solo la lista
-        html += """
-            <p>Se han analizado los siguientes elementos:</p>
-            <ul>
-                <li>Carta completa con datos del jugador</li>
-                <li>Mapa de calor de posiciones en el campo</li>
-                <li>Evolución por jornadas (gráfico de barras)</li>
-                <li>Datos detallados por jornadas</li>
-                <li>Perfil condicional (gráfico radar)</li>
-                <li>Relación entre variables (gráfico de dispersión)</li>
-            </ul>
-            <p><i>Nota: Para visualizar los gráficos completos, por favor consulte la aplicación web.</i></p>
-        """
-    
-    # Continuar con el resto del informe
-    html += """
-        </div>
-        
-        <div class="seccion">
-            <h3>Resumen del análisis físico</h3>
-    """
+    # Agregar logo si está disponible
+    if escudo_base64:
+        html += f'<div class="logo"><img src="data:image/png;base64,{escudo_base64}" width="80" height="80" alt="Atleti Logo"></div>'
     
     html += f"""
-            <p>El análisis físico de {jugador_nombre} muestra patrones consistentes en las métricas de rendimiento físico. Se destacan valores significativos en distancia recorrida y sprints realizados.</p>
-            <p>El mapa de calor y el perfil condicional disponibles en la aplicación proporcionan una visualización detallada de su rendimiento físico y zonas de influencia en el campo.</p>
+            <h1>INFORME FÍSICO ATLETI</h1>
         </div>
         
-        <hr>
+        <div class="info">
+            <h2>Información del Jugador</h2>
+            <p class="jugador-nombre">{jugador_nombre}</p>
+            <p><strong>Jornadas analizadas:</strong> {rango_jornadas[0]} a {rango_jornadas[1]}</p>
+            <p><strong>Fecha de generación:</strong> {fecha_generacion}</p>
+        </div>
         
-        <div class="pie">
-            <p>Informe generado el {datetime.now().strftime('%d/%m/%Y a las %H:%M:%S')}</p>
-            <p>Departamento de Análisis - Atlético de Madrid</p>
+        <div class="section">
+            <h2>Análisis Físico</h2>
+            
+            <div class="metric">
+                <h3>Carta completa con datos del jugador</h3>
+                <p>Información completa del jugador, incluyendo datos personales y características principales.</p>
+            </div>
+            
+            <div class="metric">
+                <h3>Mapa de calor de posiciones</h3>
+                <p>Visualiza las zonas del campo donde el jugador ha tenido mayor presencia durante las jornadas analizadas.</p>
+            </div>
+            
+            <div class="metric">
+                <h3>Evolución por jornadas</h3>
+                <p>Muestra la progresión de métricas físicas clave a lo largo de las jornadas seleccionadas.</p>
+            </div>
+            
+            <div class="metric">
+                <h3>Perfil condicional</h3>
+                <p>Gráfico radar que representa el perfil físico completo del jugador en comparación con valores de referencia.</p>
+            </div>
+            
+            <div class="metric">
+                <h3>Relación entre variables</h3>
+                <p>Análisis de correlación entre diferentes métricas físicas para identificar patrones de rendimiento.</p>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>Conclusiones</h2>
+            <p>El análisis físico de {jugador_nombre} muestra patrones consistentes en las métricas de rendimiento físico.</p>
+            <p>Se destacan valores significativos en distancia recorrida y sprints realizados.</p>
+            <p>El mapa de calor y el perfil condicional proporcionan una visualización detallada de su rendimiento físico 
+            y zonas de influencia en el campo.</p>
+        </div>
+        
+        <div class="footer">
+            <p>Documento confidencial - Atlético de Madrid | Departamento de Análisis</p>
         </div>
     </body>
     </html>
@@ -269,49 +318,26 @@ def generar_html_fisico(jugador_nombre, rango_jornadas, graficos_base64=None, fo
     
     return html
 
-# Modificar tus callbacks para capturar las imágenes
-
-def procesar_figura_a_base64(figura):
-    """Intenta extraer la representación base64 de una figura"""
-    try:
-        if isinstance(figura, dict) and 'data' in figura:
-            figure_json = json.dumps(figura)
-            import re
-            
-            # Buscar patrones de imagen base64 en el JSON
-            pattern = r'data:image/[^;]+;base64,[a-zA-Z0-9+/]+=*'
-            matches = re.findall(pattern, figure_json)
-            if matches:
-                return matches[0]
-    except:
-        pass
-    
-    return None
-
-# Funciones para exportar
 def exportar_pdf_stats(n_clicks, graficos, jugadores, rango_jornadas):
     """Exporta PDF de estadísticas"""
     if not n_clicks:
         return None
     
     try:
-        # Generar nombre de archivo
-        nombre_archivo = f"Informe_Estadistico_ATM_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-        
-        # Procesar gráficos para obtener representaciones base64 si es posible
-        graficos_base64 = []
-        if graficos:
-            graficos_base64 = [procesar_figura_a_base64(g) for g in graficos]
-        
         # Generar HTML
-        html_content = generar_html_estadistico(jugadores, rango_jornadas, graficos_base64)
+        html_content = generar_template_estadistico(jugadores, rango_jornadas)
         
         # Convertir a PDF
         pdf_bytes = convert_html_to_pdf(html_content)
         
+        # Generar nombre de archivo
+        fecha_hora = datetime.now().strftime('%Y%m%d_%H%M%S')
+        nombre_archivo = f"Informe_Estadistico_Atleti_{fecha_hora}.pdf"
+        
         return dcc.send_bytes(pdf_bytes, nombre_archivo)
     except Exception as e:
         print(f"Error en exportar_pdf_stats: {str(e)}")
+        import traceback
         traceback.print_exc()
         return None
 
@@ -319,79 +345,78 @@ def exportar_pdf_fisico(n_clicks, jugador_nombre, foto_path, graficos, heatmap, 
     """Exporta PDF físico"""
     if not n_clicks:
         return None
-    
+        
     try:
-        # Generar nombre de archivo
-        nombre_archivo = f"Informe_Fisico_{jugador_nombre}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-        
-        # Procesar gráficos para obtener representaciones base64 si es posible
-        graficos_base64 = []
-        if graficos:
-            graficos_base64 = [procesar_figura_a_base64(g) for g in graficos]
-        
-        # Procesar heatmap
-        heatmap_base64 = procesar_figura_a_base64(heatmap) if heatmap else None
-        
-        # Procesar foto si existe
-        foto_base64 = None
-        if foto_path and os.path.exists(foto_path):
-            try:
-                with open(foto_path, 'rb') as f:
-                    encoded = base64.b64encode(f.read()).decode('utf-8')
-                    foto_base64 = f"data:image/png;base64,{encoded}"
-            except:
-                pass
-        
+        # Si no hay nombre de jugador, usar un valor por defecto
+        if not jugador_nombre:
+            jugador_nombre = "Jugador"
+            
+        # Si no hay rango de jornadas o es inválido, usar valores por defecto
+        if not rango_jornadas or len(rango_jornadas) < 2:
+            rango_jornadas = [1, 38]
+            
         # Generar HTML
-        html_content = generar_html_fisico(jugador_nombre, rango_jornadas, graficos_base64, foto_base64, heatmap_base64)
+        html_content = generar_template_fisico(jugador_nombre, rango_jornadas)
         
         # Convertir a PDF
         pdf_bytes = convert_html_to_pdf(html_content)
         
+        # Generar nombre de archivo
+        fecha_hora = datetime.now().strftime('%Y%m%d_%H%M%S')
+        nombre_archivo = f"Informe_Fisico_Atleti_{jugador_nombre}_{fecha_hora}.pdf"
+        
         return dcc.send_bytes(pdf_bytes, nombre_archivo)
     except Exception as e:
         print(f"Error en exportar_pdf_fisico: {str(e)}")
+        import traceback
         traceback.print_exc()
         return None
 
-# Función de compatibilidad con el código existente
+def crear_boton_exportar_pdf():
+    """Crea un botón estilizado para exportar a PDF estadístico"""
+    return dbc.Button(
+        "Exportar PDF",
+        id="exportar-pdf-btn-stats",
+        color="primary",  # Color azul
+        className="me-2"
+    )
+
+def crear_boton_exportar_pdf_fisico():
+    """Crea un botón estilizado para exportar a PDF físico"""
+    return dbc.Button(
+        "Exportar PDF",
+        id="exportar-pdf-btn-physical",
+        color="primary",  # Color azul
+        className="me-2"
+    )
+
+# Función de compatibilidad
 def exportar_pdf(n_clicks, graficos, titulo, estadistica, rango_jornadas, jugadores=None):
-    """
-    Función de compatibilidad con código existente
-    """
+    """Función de compatibilidad con código existente"""
     if not n_clicks:
         return None
     
     try:
-        # Si es un informe físico (basado en el título)
-        if "Físico" in titulo and jugadores and (isinstance(jugadores, str) or len(jugadores) == 1):
-            jugador_nombre = jugadores[0] if isinstance(jugadores, list) else jugadores
-            foto_path = f"assets/fotos/{jugador_nombre.lower().replace(' ', '_')}.png"
-            if not os.path.exists(foto_path):
-                foto_path = None
-                
+        # Si es un informe físico
+        if "Físico" in titulo:
+            jugador_nombre = jugadores[0] if isinstance(jugadores, list) and len(jugadores) > 0 else jugadores
             return exportar_pdf_fisico(
                 n_clicks, 
                 jugador_nombre, 
-                foto_path,
-                graficos if isinstance(graficos, list) else [graficos],
+                None,  # foto_path
+                graficos,
                 None,  # heatmap
                 None,  # table_img
                 rango_jornadas
             )
         else:
-            # Para informes de estadísticas y otros tipos
+            # Para informes de estadísticas
             if isinstance(jugadores, list):
-                return exportar_pdf_stats(n_clicks, 
-                                         graficos if isinstance(graficos, list) else [graficos], 
-                                         jugadores, 
-                                         rango_jornadas)
+                return exportar_pdf_stats(n_clicks, graficos, jugadores, rango_jornadas)
             else:
-                return exportar_pdf_stats(n_clicks, 
-                                         graficos if isinstance(graficos, list) else [graficos], 
-                                         [jugadores] if jugadores else [], 
-                                         rango_jornadas)
+                return exportar_pdf_stats(n_clicks, graficos, [jugadores] if jugadores else [], rango_jornadas)
     except Exception as e:
         print(f"Error en exportar_pdf: {str(e)}")
+        import traceback
         traceback.print_exc()
         return None

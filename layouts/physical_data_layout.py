@@ -7,7 +7,7 @@ import os
 import unicodedata
 from utils.auth import protect_route
 from flask_login import current_user
-from utils.pdf_export import exportar_pdf
+from utils.pdf_export import exportar_pdf, crear_boton_exportar_pdf, crear_boton_exportar_pdf_fisico
 from config import CONFIG
 
 @protect_route(['view_team', 'view_all'])
@@ -404,24 +404,17 @@ def physical_data_layout():
                 ], md=6, className="mb-4")
             ]),
 
-            # Botón para exportar PDF
+            # Botón para descargar los datos a PDF
             dbc.Row([
                 dbc.Col([
                     html.Div([
-                        dcc.Download(id="descargar-pdf-physical"),
-                        dbc.Button(
-                            "Generar PDF",
-                            id="exportar-pdf-btn-physical",
-                            color="primary",
-                            className="me-2"
-                        ),
-                        html.Span(id="pdf-status-physical", className="ms-2")
+                        dcc.Download(id="descargar-pdf-physical"),  # Componente para manejar la descarga
+                        crear_boton_exportar_pdf_fisico(),          # Botón para exportar
+                        html.Span(id="pdf-status-physical", className="ms-2")  # Elemento para mostrar el estado
                     ], className="d-flex align-items-center")
                 ], width=12)
             ]),
-    
-            # Div para almacenar datos intermedios
-            dcc.Store(id='datos-jugador-store')
+            dcc.Store(id='datos-jugador-store'),
         ])
     except Exception as e:
         import traceback

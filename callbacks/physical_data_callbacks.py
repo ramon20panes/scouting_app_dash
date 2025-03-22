@@ -1135,8 +1135,11 @@ def register_physical_data_callbacks(app):
         prevent_initial_call=True
     )
     def exportar_pdf_fisico_datos(n_clicks, datos, figura_barras, figura_radar, figura_scatter):
-        if not n_clicks or not datos:
+        if not n_clicks:
             return None, ""
+    
+        if not datos:
+            return None, html.Span("No hay datos del jugador", className="ms-2 fw-bold", style={"color": "#FF0000"})
         
         try:
             jugador = datos['jugador']

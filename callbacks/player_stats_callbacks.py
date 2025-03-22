@@ -3,9 +3,8 @@ from dash.dependencies import Input, Output, State
 from dash import html, dcc
 import pandas as pd
 from utils.data_viz import format_stat_name, crear_grafico_linea, crear_grafico_barras, crear_grafico_histograma, crear_grafico_scatter
-from utils.pdf_export import exportar_pdf
+from utils.pdf_export import exportar_pdf, exportar_pdf_stats
 from layouts.player_stats_layout import colores_jugadores, colores_por_posicion
-from utils.pdf_export import exportar_pdf_stats
 
 def register_player_stats_callbacks(app):
     """
