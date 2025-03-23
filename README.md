@@ -88,6 +88,11 @@ Aplicación web de visualización de estadísticas de jugadores del Atlético de
 
 6.- Navegar por la barra de estado
 
+1(b).- Con docker: docker pull ramon20panes/atm-scoutin-app
+
+2(b).- Con docker: docker run -p 8050:8050 ramon20panes/atm-scoutin-app
+
+3(b).- Para acceder, abrir navegador e ir a: http://localhost:8050
 
 ## Agradecimientos
 
