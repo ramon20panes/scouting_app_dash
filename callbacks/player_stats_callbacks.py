@@ -12,7 +12,7 @@ def register_player_stats_callbacks(app):
     """
     try:
         # Cargar datos de jugadores
-        df = pd.read_csv('data/ATM_24_25.csv')
+        df = pd.read_csv('data/players_atm_24_25.csv')
         
         # Callback para actualizar el dropdown de jugadores según la posición seleccionada
         @app.callback(
