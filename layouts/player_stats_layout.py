@@ -12,7 +12,7 @@ def player_stats_layout():
     """
     try:
         # Cargar datos de jugadores
-        df = load_team_data('data/players_atm_24_25.csv')
+        df = load_team_data('data/players_atm_x_jorna_24_25.csv')
         
         # Obtener posiciones únicas
         posiciones = sorted(df['Posicion'].unique())
